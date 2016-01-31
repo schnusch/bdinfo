@@ -1,5 +1,8 @@
+PREFIX ?= /usr/local
+
 PKG_CONFIG ?= pkg-config
 STRIP      ?= strip
+INSTALL    ?= install
 
 CFLAGS := -std=c99 -O2 -Wall -Wextra -Wpedantic \
 			$(shell $(PKG_CONFIG) --cflags libavformat libavutil libbluray) \
@@ -23,6 +26,9 @@ bdinfo: bdinfo.c bd.o mempool.o
 
 clean:
 	-$(RM) bdinfo *.o
+
+install: bdinfo
+	$(INSTALL) -Dm 0755 -t $(DESTDIR)$(PREFIX)/bin bdinfo
 
 %.o: %.c %.h
 	$(CC) -c $(CFLAGS) -o $@ $<
