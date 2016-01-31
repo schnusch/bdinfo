@@ -526,7 +526,7 @@ int main(int argc, char **argv)
 {
 	int operation = 'l';
 	char *argument = NULL;
-	uint32_t playlist;
+	uint32_t playlist = 0;
 	int playlist_set = 0;
 	unsigned int angle = 0;
 
@@ -700,11 +700,12 @@ int main(int argc, char **argv)
 
 			const char *dst = argv[optind];
 
+			const char **ffargv = NULL;
 			if(operation == 'f')
 			{
 				// generate ffmpeg call without chapter pipe
-				const char **ffargv = generate_ffargv(bd, playlist, angle,
-						langs, src, dst, -1);
+				ffargv = generate_ffargv(bd, playlist, angle, langs, src, dst,
+						-1);
 				free(langs);
 				if(ffargv == NULL)
 					goto error3;
@@ -736,8 +737,8 @@ int main(int argc, char **argv)
 				}
 
 				// generate ffmpeg call with chapter pipe
-				const char **ffargv = generate_ffargv(bd, playlist, angle,
-						langs, src, dst, fds[0]);
+				ffargv = generate_ffargv(bd, playlist, angle, langs, src, dst,
+						fds[0]);
 				free(langs);
 				if(ffargv == NULL)
 				{
