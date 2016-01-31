@@ -54,7 +54,7 @@ const char *ticks2time(uint64_t ticks)
 			":%02" PRIu64 ".%03" PRIu64,
 			ticks / 90000 / 3600, (ticks / 90000 / 60) % 60,
 			(ticks / 90000) % 60, (ticks / 90) % 1000);
-	if(n < sizeof(time_buf))
+	if((size_t)n < sizeof(time_buf))
 		return time_buf;
 	else
 		return 0;
@@ -151,7 +151,8 @@ int list_titles(BLURAY *bd, const char *src, const char *sdur,
 
 		struct bluray_title *bt = &pile->titles[i];
 		if(printf("%s playlist: %05" PRIu32 ".mlps, angle: %" PRIu8 ", "
-				"duration: %s, chapters: %" PRIu32, i == m ? "(*)" : "   ",
+				"duration: %s, chapters: %" PRIu32,
+				m != -1 && i == (uint32_t)m ? "(*)" : "   ",
 				bt->playlist, bt->angle, ticks2time(bt->duration),
 				bt->chapter_count) < 0)
 			goto error;
@@ -166,14 +167,15 @@ int list_titles(BLURAY *bd, const char *src, const char *sdur,
 				if(j > 0)
 					if(fputc(',', stdout) == EOF)
 						goto error;
-				if(fputs(bt->clips[j].name, stdout) == EOF)
+				if(fputs(bt->clips[j].name == NULL ? "(unknown)" :
+						bt->clips[j].name, stdout) == EOF)
 					goto error;
 			}
 		}
 
 		if(bt->stream_count > 0)
 		{
-			int last = bt->streams[0].type;
+			unsigned int last = bt->streams[0].type;
 			uint16_t j = 0;
 			uint16_t k = 0;
 			while(bt->stream_count > 0)

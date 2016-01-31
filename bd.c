@@ -19,6 +19,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -318,8 +319,6 @@ struct bluray_title_pile *get_bluray_title_pile(BLURAY *bd, const char *src,
 	struct clip_map *clips = NULL;
 #ifndef NO_CLIP_NAMES
 	clips = create_clip_map(src);
-	if(clips == NULL)
-		return NULL;
 #endif
 
 	mempool_t btpool;
@@ -426,7 +425,7 @@ struct bluray_title_pile *get_bluray_title_pile(BLURAY *bd, const char *src,
 			nbss += bt->stream_count;
 #endif
 
-			// TODO refine with metadata
+			// refine with metadata
 			BLURAY_CLIP_INFO *c = ti->clips;
 			add_metadata(bt->streams, c->video_streams, c->video_stream_count);
 			add_metadata(bt->streams, c->audio_streams, c->audio_stream_count);
@@ -455,6 +454,8 @@ struct bluray_title_pile *get_bluray_title_pile(BLURAY *bd, const char *src,
 			break;
 	}
 	*pbt = NULL;
+
+	// TODO find identical clips
 
 	struct bluray_title_pile *pile = malloc(sizeof(struct bluray_title_pile)
 			+ nbts * sizeof(struct bluray_title)
