@@ -15,7 +15,7 @@
    You should have received a copy of the GNU Lesser General Public License
    along with libdecrypt.  If not, see <http://www.gnu.org/licenses/>. */
 
-#define VERSION "0.2.1"
+#define VERSION "0.2.2"
 
 #define _GNU_SOURCE
 #include <getopt.h>
@@ -349,6 +349,8 @@ int print_mkvpropedit(BLURAY_TITLE_INFO *ti, char *mapping)
 const char **generate_ffargv(BLURAY *bd, uint32_t playlist, uint8_t angle,
 		char **langs, const char *src, const char *dst, int chapters)
 {
+	// TODO pcm_bluray and maybe custom arguments
+
 	/*
 	ffmpeg -playlist %d -angle %d -i bluray:%s [-i /proc/self/fd/%d]
 			-c copy [[-map 0:%c:%d] [-metadata:s:%d language=%s]]...
@@ -372,22 +374,24 @@ const char **generate_ffargv(BLURAY *bd, uint32_t playlist, uint8_t angle,
 	// count mappings
 	uint16_t maps  = 0;
 	uint16_t metas = 0;
+	uint8_t  convs = 0;
 	for(uint16_t i = 0; i < bt->stream_count; i++)
-	{
-		if(strcmp(bt->streams[i].lang, "und") == 0)
-			maps++;
-		else
-			for(char **lang = langs; *lang; lang++)
-				if(strcmp(bt->streams[i].lang, *lang) == 0)
+		for(char **lang = langs; *lang; lang++)
+			if(strcmp(bt->streams[i].lang, *lang) == 0)
+			{
+				maps++;
+				metas++;
+				if(bt->streams[i].codec == BLURAY_CODEC_PCM)
 				{
-					maps++;
-					metas++;
-					break;
+					convs += 3 + DECIMAL_BUFFER_LEN(uint16_t);
+					ffargc += 4;
 				}
-	}
+				break;
+			}
 	ffargc += 2 * (maps + metas);
 	ffargn += maps * (2 + DECIMAL_BUFFER_LEN(uint16_t) + 1)
-			+ metas * (12 + DECIMAL_BUFFER_LEN(uint8_t) + 1 + 12 + 1);
+			+ metas * (12 + DECIMAL_BUFFER_LEN(uint16_t) + 1 + 12 + 1)
+			+ convs;
 
 	const char **ffargv = malloc((ffargc + 1) * sizeof(char *) + ffargn);
 	if(ffargv != NULL)
@@ -427,6 +431,14 @@ const char **generate_ffargv(BLURAY *bd, uint32_t playlist, uint8_t angle,
 								"-metadata:s:%" PRIu16, j) + 1;
 						ffargp2 += sprintf((char *)(*ffargp1++ = ffargp2),
 								"language=%s", *lang) + 1;
+						if(bt->streams[i].codec == BLURAY_CODEC_PCM)
+						{
+							ffargp2 += sprintf((char *)(*ffargp1++ = ffargp2),
+									"-c:%" PRIu16, j) + 1;
+							*ffargp1++ = "flac";
+							*ffargp1++ = "-compression_level";
+							*ffargp1++ = "12";
+						}
 					}
 					j++;
 					break;
@@ -546,7 +558,7 @@ int main(int argc, char **argv)
 				{"help",        no_argument,       NULL, 'h'},
 				{"version",     no_argument,       NULL, 'v'},
 				{NULL,          0,                 NULL, 0}};
-		int c = getopt_long(argc, argv, "lp:a:cf:x:hv", long_options, NULL);
+		int c = getopt_long(argc, argv, "l::p:a:cf:x:hv", long_options, NULL);
 		if(c == -1)
 			break;
 		switch(c)
@@ -556,7 +568,7 @@ int main(int argc, char **argv)
 					"Get BluRay info and extract tracks with ffmpeg.\n"
 					"\n"
 					"  -l, --list[=DURATION]      list all tracks at least DURATION seconds\n"
-					"                             long (default)\n"
+					"                             long (default operation)\n"
 					"  -p, --playlist=PLAYLIST    use playlist PLAYLIST\n"
 					"  -a, --angle=ANGLE          use angle ANGLE\n"
 					"  -c, --chapters             print chapter xml and exit (-p required)\n"

@@ -15,7 +15,7 @@
    You should have received a copy of the GNU Lesser General Public License
    along with libdecrypt.  If not, see <http://www.gnu.org/licenses/>. */
 
-#include <inttypes.h>
+#include <stdint.h>
 
 #include <libbluray/bluray.h>
 
@@ -34,6 +34,10 @@ struct bluray_stream {
 		BLURAY_STREAM_SUBTITLE = 2,
 		BLURAY_STREAM_OTHER    = 3
 	} type;
+	enum {
+		BLURAY_CODEC_PCM,
+		BLURAY_CODEC_OTHER
+	} codec;
 	char lang[4];
 };
 

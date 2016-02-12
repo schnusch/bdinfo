@@ -18,6 +18,7 @@
 #define _GNU_SOURCE
 #include <dirent.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -33,7 +34,6 @@
 #endif
 
 #include "bd.h"
-
 #include "mempool.h"
 
 #ifndef NO_CLIP_NAMES
@@ -119,6 +119,7 @@ static struct clip_map *create_clip_map(const char *src)
 /**
  * Seek into every clip and check open fds to find the files corresponding to
  * the clips.
+ * NOT WORKING
  */
 static int do_da_fd_trickery(struct bluray_clip *bc, BLURAY *bd,
 		BLURAY_CLIP_INFO *ci, struct clip_map *clips)
@@ -254,12 +255,17 @@ static struct bluray_stream *get_avformat_streams(BLURAY *bd, mempool_t *bspool,
 			goto error;
 		pbs = &NEXT(stream, *pbs);
 
-		bs->indx = s;
-		bs->id   = avs->id;
+		bs->indx  = s;
+		bs->id    = avs->id;
+		bs->codec = BLURAY_CODEC_OTHER;
 		if(avc->codec_type == AVMEDIA_TYPE_VIDEO)
 			bs->type = BLURAY_STREAM_VIDEO;
 		else if(avc->codec_type == AVMEDIA_TYPE_AUDIO)
+		{
 			bs->type = BLURAY_STREAM_AUDIO;
+			if(avc->codec_id == AV_CODEC_ID_PCM_BLURAY)
+				bs->codec = BLURAY_CODEC_PCM;
+		}
 		else if(avc->codec_type == AVMEDIA_TYPE_SUBTITLE)
 			bs->type = BLURAY_STREAM_SUBTITLE;
 		else
