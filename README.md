@@ -12,8 +12,6 @@ extract metadata and chapters from blurays.
 
 ## Compilation
 
-Optional macros `NO_CLIP_NAMES` and `NO_LIBAVFORMAT`.
-
 * `NO_CLIP_NAMES` do not retrieve clip names and consequently do not build with
   a static libbluray
 * `NO_STRIP`
