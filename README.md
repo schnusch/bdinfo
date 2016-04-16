@@ -30,7 +30,7 @@ Get Blu-ray info and extract tracks with ffmpeg.
                              ANGLE
   -a, --all                  do not omit duplicate titles
   -i, --info                 print more detailed information
-  -c, --chapters             print chapter xml and exit (-p required)
+  -c, --chapters             print chapter xml
   -f, --ffmpeg=LANGUAGES     print ffmpeg call to extract streams of given or
                              undefined languages
   -x, --remux=LANGUAGES      extract streams of given or undefined languages

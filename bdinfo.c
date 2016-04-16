@@ -16,7 +16,7 @@
    along with libdecrypt.  If not, see <http://www.gnu.org/licenses/>. */
 
 #define BLURAY_SPELLING "Blu-ray"
-#define VERSION         "1.0.0"
+#define VERSION         "1.0.1"
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -956,7 +956,7 @@ int main(int argc, char **argv)
 					"  -a, --all                  do not omit duplicate titles\n"
 //					"  -m, --multiple             allow selection of multiple titles for extraction\n"
 					"  -i, --info                 print more detailed information\n"
-					"  -c, --chapters             print chapter xml and exit (-p required)\n"
+					"  -c, --chapters             print chapter xml\n"
 					"  -f, --ffmpeg=LANGUAGES     print ffmpeg call to extract streams of given or\n"
 					"                             undefined languages\n"
 					"  -x, --remux=LANGUAGES      extract streams of given or undefined languages\n"
@@ -1270,6 +1270,7 @@ int main(int argc, char **argv)
 	{
 		if(til->ti != NULL)
 			bd_free_title_info(til->ti);
+		free(til->clips);
 		for(BLURAY_TITLE_INFO *ti = til->ti; til && til->ti == ti; til = til->next);
 	}
 	mempool_destroy(&listpool);
