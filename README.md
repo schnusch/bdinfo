@@ -7,7 +7,6 @@ extract metadata and chapters from blurays.
 ## Dependencies
 
 * libbluray
-* libavformat (ffmpeg)
 * ffmpeg (for stream extraction)
 
 
@@ -15,9 +14,9 @@ extract metadata and chapters from blurays.
 
 Optional macros `NO_CLIP_NAMES` and `NO_LIBAVFORMAT`.
 
-* `NO_CLIP_NAMES` disable linux specific clip name mapping via `/proc/self/fd/`
-* `NO_LIBAVFORMAT` disable dependency on libavformat at the cost of accurate
-  ffmpeg stream mapping (currently does not even build)
+* `NO_CLIP_NAMES` do not retrieve clip names and consequently do not build with
+  a static libbluray
+* `NO_STRIP`
 
 
 ## Functionality
@@ -25,17 +24,19 @@ Optional macros `NO_CLIP_NAMES` and `NO_LIBAVFORMAT`.
 ```
 $ ./bdinfo --help
 Usage: ./bdinfo [OPTION]... FILE
-Get BluRay info and extract tracks with ffmpeg.
+Get Blu-ray info and extract tracks with ffmpeg.
 
-  -l, --list[=DURATION]      list all tracks at least DURATION seconds
-                             long (default)
-  -p, --playlist=PLAYLIST    use playlist PLAYLIST
-  -a, --angle=ANGLE          use angle ANGLE
+  -t, --time=DURATION        select all titles at least DURATION seconds long
+  -p, --playlist=PLAYLIST[:ANGLE]
+                             select playlist PLAYLIST and optionally only angle
+                             ANGLE
+  -a, --all                  do not omit duplicate titles
+  -i, --info                 print more detailed information
   -c, --chapters             print chapter xml and exit (-p required)
-  -f, --ffmpeg=LANGUAGES     create a ffmpeg call to extract all given languages
-                             (-p required)
-  -x, --remux=LANGUAGES      extract all given language's streams and chatpers
-                             with ffmpeg (-p required)
+  -f, --ffmpeg=LANGUAGES     print ffmpeg call to extract streams of given or
+                             undefined languages
+  -x, --remux=LANGUAGES      extract streams of given or undefined languages
+                             with ffmpeg
   -h, --help     display this help and exit
   -v, --version  output version information and exit
 ```
