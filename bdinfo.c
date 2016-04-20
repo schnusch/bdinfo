@@ -565,10 +565,10 @@ static void ffargv_count(BLURAY_STREAM_INFO *st, void *data)
 {
 	struct ffargv_count *cnt = data;
 	for(const char **lang = cnt->langs; *lang; lang++)
-		if(memcmp(st->lang, *lang, 4) == 0)
+		if(st->lang[0] == '\0' || strncmp((char *)st->lang, *lang, 4) == 0)
 		{
 			cnt->maps++;
-			cnt->metas++;
+			cnt->metas += (st->lang[0] != '\0');
 			if(st->coding_type == BLURAY_STREAM_TYPE_AUDIO_LPCM)
 			{
 				cnt->convs += 3 + DECIMAL_BUFFER_LEN(uint16_t);
@@ -586,22 +586,22 @@ static void ffargv_fill(BLURAY_STREAM_INFO *st, void *data)
 {
 	struct ffarg *ff = data;
 	for(const char **lang = ff->langs; *lang; lang++)
-		if(memcmp(st->lang, *lang, 4) == 0)
+		if(st->lang[0] == '\0' || strncmp((char *)st->lang, *lang, 4) == 0)
 		{
 			*ff->argp1++ = "-map";
 			ARGV_APPENDF(ff->argp1, ff->argp2, "0:i:0x%04" PRIx16, st->pid);
-			if(memcmp(st->lang, "und", 4) != 0)
+			if(st->lang[0] != '\0')
 			{
 				ARGV_APPENDF(ff->argp1, ff->argp2, "-metadata:s:%" PRIu16, ff->i);
 				ARGV_APPENDF(ff->argp1, ff->argp2, "language=%s",  *lang);
-				if(st->coding_type == BLURAY_STREAM_TYPE_AUDIO_LPCM)
-				{
-					// FIXME keep pcm
-					ARGV_APPENDF(ff->argp1, ff->argp2, "-c:%" PRIu16, ff->i);
-					*ff->argp1++ = "flac";
-					*ff->argp1++ = "-compression_level";
-					*ff->argp1++ = "12";
-				}
+			}
+			if(st->coding_type == BLURAY_STREAM_TYPE_AUDIO_LPCM)
+			{
+				// FIXME keep pcm
+				ARGV_APPENDF(ff->argp1, ff->argp2, "-c:%" PRIu16, ff->i);
+				*ff->argp1++ = "flac";
+				*ff->argp1++ = "-compression_level";
+				*ff->argp1++ = "12";
 			}
 			ff->i++;
 			break;
@@ -1042,7 +1042,7 @@ int main(int argc, char **argv)
 		case 'x':
 		{
 			// prepare language list
-			size_t l = (strcnt(optarg, ',') + 3) * sizeof(char *);
+			size_t l = (strcnt(optarg, ',') + 2) * sizeof(char *);
 			// count ISO639-2 doubles
 			char *c = optarg;
 			while(1)
@@ -1066,7 +1066,7 @@ int main(int argc, char **argv)
 					break;
 				c = c2 + 1;
 			}
-			langs = malloc(l + strlen(optarg) + 1);
+			langs = realloc(langs, l + strlen(optarg) + 1);
 			if(langs == NULL)
 				goto error_errno;
 			c = strcpy((char *)langs + l, optarg);
@@ -1094,7 +1094,6 @@ int main(int argc, char **argv)
 				*c2 = '\0';
 				c = c2 + 1;
 			}
-			*lang++ = "und";
 			*lang = NULL;
 		}
 		case 'i':
