@@ -1,0 +1,97 @@
+." Last modification 22.04.2016 @ Ferdinand Thiessen
+.TH bdinfo 1 "2016-04-22" "V1.0" "bdinfo manpage"
+
+
+.SH NAME
+
+bdinfo \- bluray information and extraction
+
+
+.SH DESCRIPTION
+
+bdinfo is a commandline tool from getting information from blurays
+.br
+and extract stream, muxing them into a matroska file using ffmpeg.
+.br
+The main reason for using bdinfo is that ffmpeg is at the moment unable to do it itself.
+.br
+Moreover bdinfo provies an easy way for scripting extraction using its
+.I YAML
+output.
+.br
+Note: There is absolutely no copy protection circumvention!
+
+
+.SH SYNOPSIS
+.SY bdinfo
+.OP \-achiv
+.OP \-t duration
+.OP \-p playlist\fR[\fI:angle\fR]
+.br
+.OP \-f language(s)
+.OP \-x language(s)
+.I input
+.RI [ output \fR]
+.YS
+
+Note: \fIinput\fR is the directory containing the \fIBDMV\fR directory.
+
+
+.SH OPTIONS
+
+.IP "\fB\-a, \-\-all"
+Select all titles, do not omit duplicate ones
+.IP "\fB\-c, \-\-chapters"
+Print chapters-xml to stdout
+.IP "\fB-h, --help"
+Show basic help from command line
+.IP "\fB\-i, \-\-info"
+Be more verbose on information, increases printed information
+.IP "\fB\-p, \-\-playlist\fR=\fIPLAYLIST\fR[\fI:ANGLE\fR]"
+Select playlist
+.I PLAYLIST
+and all angles unless
+.I ANGLE
+is specified,
+.br
+in that case only the given angle is selected.
+.IP "\fB\-f, \-\-ffmpeg\fR=\fILANGUAGES\fR"
+Print ffmpeg command for extracting streams,
+.br
+which language-tags match one of \fBLANGUAGES\fR or are \fIundefined\fR.
+
+
+.B LANGUAGES
+is a comma-separated list of ISO-639-2 language-tags,
+.br 
+e.g. \fIger,eng\fR for German and English languages.
+
+
+Note: \fIoutput\fR, which defines the output file, is required.
+.IP "\fB\-x, \-\-remux\fR=\fILANGUAGES\fR"
+Extract streams which language-tags match one of
+.I LANGUAGES
+or are \fIundefined\fR into \fIoutput\fR-file.
+.br
+Basically it executes the ffmpeg command \fB\-f\fR would print.
+.IP "\fB\-t, \-\-time\fR=\fIDURATION\fR"
+Select all titles which are at least
+.I DURATION
+seconds long
+.IP "\fB-v, --version"
+Show version and license information
+
+
+.SH AUTHOR
+
+Schnusch \fB\-\fR Main developer and founder of bdinfo
+.br
+Ferdinand Thiessen \fB-\fR This manpage
+
+
+.SH SEE ALSO
+
+.UR "https://github.com/\:Schnusch/\:bdinfo
+Visit Github page
+.UE ,
+for updates and other information.

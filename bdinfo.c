@@ -946,7 +946,7 @@ int main(int argc, char **argv)
 		switch(c)
 		{
 		case 'h':
-			if(printf("Usage: %s [OPTION]... FILE\n"
+			if(printf("Usage: %s [OPTION]... INPUT [OUTPUT]\n"
 					"Get " BLURAY_SPELLING " info and extract tracks with ffmpeg.\n"
 					"\n"
 					"  -t, --time=DURATION        select all titles at least DURATION seconds long\n"
@@ -961,8 +961,8 @@ int main(int argc, char **argv)
 					"                             undefined languages\n"
 					"  -x, --remux=LANGUAGES      extract streams of given or undefined languages\n"
 					"                             with ffmpeg\n"
-					"  -h, --help     display this help and exit\n"
-					"  -v, --version  output version information and exit\n",
+					"  -h, --help                 display this help and exit\n"
+					"  -v, --version              output version information and exit\n",
 					argv[0]) < 0)
 				goto error_errno;
 			return 0;

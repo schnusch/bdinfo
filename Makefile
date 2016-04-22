@@ -1,8 +1,10 @@
 PREFIX ?= /usr/local
+MANDIR ?= $(PREFIX)/share/man
 
 DETARBZ2   ?= tar -xj
 DOWN       ?= curl -L
 GPATCH     ?= patch
+GZ         ?= gzip
 INSTALL    ?= install
 PKG_CONFIG ?= pkg-config
 STRIP      ?= strip
@@ -33,8 +35,9 @@ all: bdinfo
 clean:
 	-$(RM) -fr $(LIBBLURAY) bdinfo *.o *.a
 
-install: bdinfo
+install: bdinfo bdinfo.1.gz
 	$(INSTALL) -Dm 0755 -t $(DESTDIR)$(PREFIX)/bin bdinfo
+	$(INSTALL) -Dm 0644 bdinfo.1.gz $(DESTDIR)$(MANDIR)/man1/bdinfo.1.gz
 
 bdinfo: bdinfo.c chapters.o mempool.o util.o $(BDINFO_OPT_DEPENDS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -45,6 +48,9 @@ mpls.o: mpls.c mpls.h $(LIBBLURAY)/.libs/libbluray.a
 
 %.o: %.c %.h
 	$(CC) -c $(CFLAGS) -o $@ $<
+
+bdinfo.1.gz: bdinfo.1
+	$(GZ) -k $<
 
 $(LIBBLURAY_STATUS_FILE):
 	$(DOWN) ftp://ftp.videolan.org/pub/videolan/libbluray/0.9.2/$(LIBBLURAY).tar.bz2 | $(DETARBZ2)

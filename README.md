@@ -8,6 +8,7 @@ extract metadata and chapters from blurays.
 
 * libbluray
 * ffmpeg (for stream extraction)
+* libxml2 (only if you decide to build patched static libbluray)
 
 
 ## Compilation
@@ -21,7 +22,7 @@ extract metadata and chapters from blurays.
 
 ```
 $ ./bdinfo --help
-Usage: ./bdinfo [OPTION]... FILE
+Usage: ./bdinfo [OPTION]... INPUT [OUTPUT]
 Get Blu-ray info and extract tracks with ffmpeg.
 
   -t, --time=DURATION        select all titles at least DURATION seconds long
@@ -35,9 +36,10 @@ Get Blu-ray info and extract tracks with ffmpeg.
                              undefined languages
   -x, --remux=LANGUAGES      extract streams of given or undefined languages
                              with ffmpeg
-  -h, --help     display this help and exit
-  -v, --version  output version information and exit
+  -h, --help                 display this help and exit
+  -v, --version              output version information and exit
 ```
+Where `INPUT` is the directory which contains the `BDMV` directory.
 
 
 ## Known Issues
