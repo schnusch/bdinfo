@@ -1,5 +1,5 @@
-." Last modification 22.04.2016 @ Ferdinand Thiessen
-.TH bdinfo 1 "2016-04-22" "V1.0" "bdinfo manpage"
+." Last modification 23.04.2016 @ Schnusch
+.TH bdinfo 1 "2016-04-23" "V1.0" "bdinfo manpage"
 
 
 .SH NAME
@@ -9,13 +9,11 @@ bdinfo \- bluray information and extraction
 
 .SH DESCRIPTION
 
-bdinfo is a commandline tool from getting information from blurays
+bdinfo is a command-line tool for extracting information about and metadata from Blu-rays or remuxing selected streams using ffmpeg.
 .br
-and extract stream, muxing them into a matroska file using ffmpeg.
+The main reason for using bdinfo is that ffmpeg at the moment is unable to extract metadata itself.
 .br
-The main reason for using bdinfo is that ffmpeg is at the moment unable to do it itself.
-.br
-Moreover bdinfo provies an easy way for scripting extraction using its
+Moreover bdinfo provies an easy way for scripted extraction using its
 .I YAML
 output.
 .br
@@ -25,28 +23,27 @@ Note: There is absolutely no copy protection circumvention!
 .SH SYNOPSIS
 .SY bdinfo
 .OP \-achiv
-.OP \-t duration
-.OP \-p playlist\fR[\fI:angle\fR]
-.br
-.OP \-f language(s)
-.OP \-x language(s)
-.I input
-.RI [ output \fR]
+.OP \-t DURATION
+.OP \-p PLAYLIST\fR[:\fIANGLE\fR]
+.OP \-f LANGUAGES
+.OP \-x LANGUAGES
+.I INPUT
+.RI [ OUTPUT \fR]
 .YS
 
-Note: \fIinput\fR is the directory containing the \fIBDMV\fR directory.
+Note: \fIINPUT\fR is the root directory of the Blu-ray or, if your distribution's libbluray supports it, a Blu-ray iso image.
 
 
 .SH OPTIONS
 
 .IP "\fB\-a, \-\-all"
-Select all titles, do not omit duplicate ones
+Select all titles, do not omit duplicates
 .IP "\fB\-c, \-\-chapters"
 Print chapters-xml to stdout
 .IP "\fB-h, --help"
-Show basic help from command line
+Show basic command-line help
 .IP "\fB\-i, \-\-info"
-Be more verbose on information, increases printed information
+List extended information for all selected titles
 .IP "\fB\-p, \-\-playlist\fR=\fIPLAYLIST\fR[\fI:ANGLE\fR]"
 Select playlist
 .I PLAYLIST
@@ -58,20 +55,20 @@ in that case only the given angle is selected.
 .IP "\fB\-f, \-\-ffmpeg\fR=\fILANGUAGES\fR"
 Print ffmpeg command for extracting streams,
 .br
-which language-tags match one of \fBLANGUAGES\fR or are \fIundefined\fR.
+which language-tags match one of \fILANGUAGES\fR or are \fIundefined\fR.
 
 
-.B LANGUAGES
-is a comma-separated list of ISO-639-2 language-tags,
-.br 
+.B \fILANGUAGES\fR
+is a comma-separated list of ISO 639-2 language-tags,
+.br
 e.g. \fIger,eng\fR for German and English languages.
 
 
-Note: \fIoutput\fR, which defines the output file, is required.
+Note: \fIOUTPUT\fR, which defines the output file, is required.
 .IP "\fB\-x, \-\-remux\fR=\fILANGUAGES\fR"
 Extract streams which language-tags match one of
 .I LANGUAGES
-or are \fIundefined\fR into \fIoutput\fR-file.
+or are \fIundefined\fR into \fIOUTPUT\fR.
 .br
 Basically it executes the ffmpeg command \fB\-f\fR would print.
 .IP "\fB\-t, \-\-time\fR=\fIDURATION\fR"
@@ -84,14 +81,14 @@ Show version and license information
 
 .SH AUTHOR
 
-Schnusch \fB\-\fR Main developer and founder of bdinfo
+Schnusch \fB\-\fR Author of bdinfo
 .br
-Ferdinand Thiessen \fB-\fR This manpage
+Ferdinand Thiessen \fB-\fR Contributor to bdinfo and original author of this manpage
 
 
 .SH SEE ALSO
 
 .UR "https://github.com/\:Schnusch/\:bdinfo
-Visit Github page
+Visit the GitHub page
 .UE ,
 for updates and other information.

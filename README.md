@@ -8,7 +8,8 @@ extract metadata and chapters from blurays.
 
 * libbluray
 * ffmpeg (for stream extraction)
-* libxml2 (only if you decide to build patched static libbluray)
+* libxml2 (if you decide to build with support for clip names which needs a
+  patched static libbluray)
 
 
 ## Compilation
@@ -39,7 +40,7 @@ Get Blu-ray info and extract tracks with ffmpeg.
   -h, --help                 display this help and exit
   -v, --version              output version information and exit
 ```
-Where `INPUT` is the directory which contains the `BDMV` directory.
+Where `INPUT` is the root directory of the Blu-ray or, if your distribution's libbluray supports it, a Blu-ray iso image.
 
 
 ## Known Issues
