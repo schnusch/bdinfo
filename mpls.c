@@ -88,7 +88,7 @@ int mpls_memparse(uint32_t *clips, uint8_t *data, size_t n, uint8_t na,
 			|| pl->play_item[0].angle_count != na)
 		goto error;
 
-    for(uint32_t ic = 0; ic < pl->list_count; ic++)
+	for(uint32_t ic = 0; ic < pl->list_count; ic++)
 	{
 		MPLS_PI *pi = &pl->play_item[ic];
 		for(uint8_t ia = 0; ia < pi->angle_count; ia++)

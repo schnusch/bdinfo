@@ -71,7 +71,6 @@ size_t strcnt(const char *s, int c)
 	return n;
 }
 
-char *shell = NULL;
 /**
  * Escapes a string not solely consisting of \w[-+,./_] for use in an
  * interactive shell.
@@ -79,6 +78,7 @@ char *shell = NULL;
  */
 const char *shell_escape(const char *src)
 {
+	static char *shell = NULL;
 	size_t n = strlen(src);
 	if(strspn(src, "+,-./0123456789:@ABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 			"abcdefghijklmnopqrstuvwxyz") == n)
@@ -136,10 +136,13 @@ void make_optstring(char *optstring, const struct option *long_opts)
 	for(const struct option *lo = long_opts; lo->name; lo++)
 	{
 		*s++ = (char)lo->val;
-		if(lo->has_arg == required_argument)
+		switch(lo->has_arg)
+		{
+		case optional_argument:
 			*s++ = ':';
-		else if(lo->has_arg == optional_argument)
-			s = stpcpy(s, "..");
+		case required_argument:
+			*s++ = ':';
+		}
 	}
 	*s = '\0';
 }

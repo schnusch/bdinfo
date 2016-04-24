@@ -16,7 +16,7 @@
    along with libdecrypt.  If not, see <http://www.gnu.org/licenses/>. */
 
 #define BLURAY_SPELLING "Blu-ray"
-#define VERSION         "1.0.1"
+#define VERSION         "1.1.0"
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -31,6 +31,7 @@
 #include <libbluray/bluray.h>
 
 #include "chapters.h"
+#include "iso-639-2.h"
 #include "mempool.h"
 #ifndef NO_CLIP_NAMES
 	#include "mpls.h"
@@ -136,51 +137,6 @@ const char *get_audio_rate(uint8_t rate)
 	return enum_map_search(rates, rate);
 }
 
-struct iso6392_map {
-	const char *prefered;
-	const char *possible;
-};
-
-static const struct iso6392_map langdoubles[] = {
-		{"tib", "bod"},
-		{"cze", "ces"},
-		{"wel", "cym"},
-		{"ger", "deu"},
-		{"baq", "eus"},
-		{"gre", "ell"},
-		{"per", "fas"},
-		{"fre", "fra"},
-		{"arm", "hye"},
-		{"ice", "isl"},
-		{"geo", "kat"},
-		{"mao", "mri"},
-		{"may", "msa"},
-		{"bur", "mya"},
-		{"dut", "nld"},
-		{"rum", "ron"},
-		{"slo", "slk"},
-		{"alb", "sqi"},
-		{"chi", "zho"},
-		{NULL,  NULL}};
-
-const char *prefered_iso6392(const char *lang)
-{
-	size_t l = 0;
-	size_t h = sizeof(langdoubles) / sizeof(langdoubles[0]) - 1;
-	while(l < h)
-	{
-		size_t m = (l + h) / 2;
-		if(strncmp(langdoubles[m].possible, lang, 3) < 0)
-			l = m + 1;
-		else
-			h = m;
-	}
-	if(strncmp(langdoubles[l].possible, lang, 3) == 0)
-		return langdoubles[l].prefered;
-	else
-		return lang;
-}
-
 struct pllist {
 	uint32_t pl;
 	uint8_t an;
@@ -189,7 +145,7 @@ struct pllist {
 
 struct tilist {
 	BLURAY_TITLE_INFO *ti;
-	uint32_t *clips; // TODO
+	uint32_t *clips;
 	uint8_t an[sizeof(void *) / sizeof(uint8_t)];
 	struct tilist *next;
 };
@@ -306,7 +262,7 @@ static int print_streams(BLURAY_CLIP_INFO *cl, bool extended)
 						FATALPRINTF("\n          - pid:          0x%04" PRIx16,
 								st->pid);
 						if(st->lang[0] != '\0')
-							FATALPRINTF("\n            language:     %s", prefered_iso6392((char *)st->lang));
+							FATALPRINTF("\n            language:     %s", iso6392_bcode((char *)st->lang));
 						const char *s;
 						if((s = get_stream_type(st->coding_type)) != NULL)
 							FATALPRINTF("\n            codec:        %s", s);
@@ -320,7 +276,7 @@ static int print_streams(BLURAY_CLIP_INFO *cl, bool extended)
 					else
 					{
 						FATALPRINTF("%s%s", first ? " [" : ", ",
-								st->lang[0] == '\0' ? "und" : prefered_iso6392((char *)st->lang));
+								st->lang[0] == '\0' ? "und" : iso6392_bcode((char *)st->lang));
 						first = false;
 					}
 				}
@@ -353,7 +309,7 @@ static int print_streams(BLURAY_CLIP_INFO *cl, bool extended)
 						FATALPRINTF("\n          - pid:      0x%04" PRIx16,
 								st->pid);
 						if(st->lang[0] != '\0')
-							FATALPRINTF("\n            language: %s", prefered_iso6392((char *)st->lang));
+							FATALPRINTF("\n            language: %s", iso6392_bcode((char *)st->lang));
 						const char *s;
 						if((s = get_stream_type(st->coding_type)) != NULL)
 							FATALPRINTF("\n            codec:    %s", s);
@@ -365,7 +321,7 @@ static int print_streams(BLURAY_CLIP_INFO *cl, bool extended)
 					else
 					{
 						FATALPRINTF("%s%s", first ? " [" : ", ",
-								st->lang[0] == '\0' ? "und" : prefered_iso6392((char *)st->lang));
+								st->lang[0] == '\0' ? "und" : iso6392_bcode((char *)st->lang));
 						first = false;
 					}
 				}
@@ -387,7 +343,7 @@ static int print_streams(BLURAY_CLIP_INFO *cl, bool extended)
 				{
 					FATALPRINTF("\n          - pid:      0x%04" PRIx16, st->pid);
 					if(st->lang[0] != '\0')
-						FATALPRINTF("\n            language: %s", prefered_iso6392((char *)st->lang));
+						FATALPRINTF("\n            language: %s", iso6392_bcode((char *)st->lang));
 					const char *s;
 					if((s = get_stream_type(st->coding_type)) != NULL)
 						FATALPRINTF("\n            codec:    %s", s);
@@ -395,7 +351,7 @@ static int print_streams(BLURAY_CLIP_INFO *cl, bool extended)
 				else
 				{
 					FATALPRINTF("%s%s", first ? " [" : ", ",
-							st->lang[0] == '\0' ? "und" : prefered_iso6392((char *)st->lang));
+							st->lang[0] == '\0' ? "und" : iso6392_bcode((char *)st->lang));
 					first = false;
 				}
 			}
@@ -418,7 +374,7 @@ static int print_streams(BLURAY_CLIP_INFO *cl, bool extended)
 					FATALPRINTF("\n          - pid:      0x%04" PRIx16,
 							st->pid);
 					if(st->lang[0] != '\0')
-						FATALPRINTF("\n            language: %s", prefered_iso6392((char *)st->lang));
+						FATALPRINTF("\n            language: %s", iso6392_bcode((char *)st->lang));
 					const char *s;
 					if((s = get_stream_type(st->coding_type)) != NULL)
 						FATALPRINTF("\n            codec:    %s", s);
@@ -426,7 +382,7 @@ static int print_streams(BLURAY_CLIP_INFO *cl, bool extended)
 				else
 				{
 					FATALPRINTF("%s%s", first ? " [" : ", ",
-							st->lang[0] == '\0' ? "und" : prefered_iso6392((char *)st->lang));
+							st->lang[0] == '\0' ? "und" : iso6392_bcode((char *)st->lang));
 					first = false;
 				}
 			}
@@ -564,9 +520,15 @@ struct ffarg {
 static void ffargv_count(BLURAY_STREAM_INFO *st, void *data)
 {
 	struct ffargv_count *cnt = data;
+#ifndef REQUIRE_LANGS
+	if(cnt->langs == NULL)
+		goto map;
+#endif
 	for(const char **lang = cnt->langs; *lang; lang++)
-		if(st->lang[0] == '\0' || strncmp((char *)st->lang, *lang, 4) == 0)
+		if(st->lang[0] == '\0'
+				|| strncmp(iso6392_bcode((char *)st->lang), *lang, 4) == 0)
 		{
+		map:
 			cnt->maps++;
 			cnt->metas += (st->lang[0] != '\0');
 			if(st->coding_type == BLURAY_STREAM_TYPE_AUDIO_LPCM)
@@ -585,15 +547,21 @@ static void ffargv_count(BLURAY_STREAM_INFO *st, void *data)
 static void ffargv_fill(BLURAY_STREAM_INFO *st, void *data)
 {
 	struct ffarg *ff = data;
+#ifndef REQUIRE_LANGS
+	if(ff->langs == NULL)
+		goto map;
+#endif
 	for(const char **lang = ff->langs; *lang; lang++)
-		if(st->lang[0] == '\0' || strncmp((char *)st->lang, *lang, 4) == 0)
+		if(st->lang[0] == '\0'
+				|| strncmp(iso6392_bcode((char *)st->lang), *lang, 4) == 0)
 		{
+		map:
 			*ff->argp1++ = "-map";
 			ARGV_APPENDF(ff->argp1, ff->argp2, "0:i:0x%04" PRIx16, st->pid);
 			if(st->lang[0] != '\0')
 			{
 				ARGV_APPENDF(ff->argp1, ff->argp2, "-metadata:s:%" PRIu16, ff->i);
-				ARGV_APPENDF(ff->argp1, ff->argp2, "language=%s",  *lang);
+				ARGV_APPENDF(ff->argp1, ff->argp2, "language=%s", iso6392_bcode((char *)st->lang));
 			}
 			if(st->coding_type == BLURAY_STREAM_TYPE_AUDIO_LPCM)
 			{
@@ -617,7 +585,7 @@ const char **generate_ffargv(struct tilist *til, const char **langs,
 			[-map_chapters 1] %s
 	*/
 	BLURAY_TITLE_INFO *ti = til->ti;
-	size_t ffargc = 10;
+	size_t ffargc = 11;
 	size_t ffargn = (DECIMAL_BUFFER_LEN(uint32_t) + 1)
 			+ (DECIMAL_BUFFER_LEN(uint8_t) + 1) + (7 + strlen(src) + 1);
 	if(chapterfd != -1)
@@ -651,6 +619,7 @@ const char **generate_ffargv(struct tilist *til, const char **langs,
 	ff.argp2 = (char *)(ffargv + ffargc + 1);
 
 	*ff.argp1++ = "ffmpeg";
+	*ff.argp1++ = "-fix_sub_duration";
 	*ff.argp1++ = "-playlist";
 	ARGV_APPENDF(ff.argp1, ff.argp2, "%" PRIu32, ti->playlist);
 	*ff.argp1++ = "-angle";
@@ -929,8 +898,13 @@ int main(int argc, char **argv)
 //			{"multiple",    no_argument,       NULL, 'm'},
 			{"info",        no_argument,       NULL, 'i'},
 			{"chapters",    no_argument,       NULL, 'c'},
+#ifdef REQUIRE_LANGS
 			{"ffmpeg",      required_argument, NULL, 'f'},
 			{"remux",       required_argument, NULL, 'x'},
+#else
+			{"ffmpeg",      optional_argument, NULL, 'f'},
+			{"remux",       optional_argument, NULL, 'x'},
+#endif
 			{"help",        no_argument,       NULL, 'h'},
 			{"version",     no_argument,       NULL, 'v'},
 			{NULL,          0,                 NULL, 0}};
@@ -957,10 +931,17 @@ int main(int argc, char **argv)
 //					"  -m, --multiple             allow selection of multiple titles for extraction\n"
 					"  -i, --info                 print more detailed information\n"
 					"  -c, --chapters             print chapter xml\n"
+#ifdef REQUIRE_LANGS
 					"  -f, --ffmpeg=LANGUAGES     print ffmpeg call to extract streams of given or\n"
 					"                             undefined languages\n"
 					"  -x, --remux=LANGUAGES      extract streams of given or undefined languages\n"
 					"                             with ffmpeg\n"
+#else
+					"  -f, --ffmpeg[=LANGUAGES]   print ffmpeg call to extract all or only streams of\n"
+					"                             given or undefined languages\n"
+					"  -x, --remux[=LANGUAGES]    extract all or only streams of given or undefined\n"
+					"                             languages with ffmpeg\n"
+#endif
 					"  -h, --help                 display this help and exit\n"
 					"  -v, --version              output version information and exit\n",
 					argv[0]) < 0)
@@ -1040,62 +1021,38 @@ int main(int argc, char **argv)
 			break;
 		case 'f':
 		case 'x':
-		{
-			// prepare language list
-			size_t l = (strcnt(optarg, ',') + 2) * sizeof(char *);
-			// count ISO639-2 doubles
-			char *c = optarg;
-			while(1)
+#ifndef REQUIRED_LANGUAGES
+			if(optarg != NULL)
+#endif
 			{
-				char *c2 = strchrnul(c, ',');
-				if(c2 - c == 3)
+				// prepare language list
+				size_t l = (strcnt(optarg, ',') + 2) * sizeof(char *);
+				langs = realloc(langs, l + strlen(optarg) + 1);
+				if(langs == NULL)
+					goto error_errno;
+				char *c = strcpy((char *)langs + l, optarg);
+				const char **lang = langs;
+				int done = 0;
+				do
 				{
-					if(prefered_iso6392(c) == c)
+					char *c2 = strchrnul(c, ',');
+					done = *c2 == '\0';
+					*c2 = '\0';
+					const char *l = iso6392_bcode(c);
+					if(l == c)
 					{
-						for(const struct iso6392_map *ld = langdoubles; ld->prefered; ld++)
-							if(strncmp(ld->prefered, c, 3) == 0)
-							{
-								l += sizeof(char *);
-								break;
-							}
+						if(!iso6392_known(c))
+							fprintf(stderr, "%s: Unknown ISO 639-2 language requested: %s\n",
+									argv[0], c);
 					}
 					else
-						l += sizeof(char *);
+						memcpy(c, l, c2 - c);
+					*lang++ = c;
+					c = c2 + 1;
 				}
-				if(*c2 == '\0')
-					break;
-				c = c2 + 1;
+				while(!done);
+				*lang = NULL;
 			}
-			langs = realloc(langs, l + strlen(optarg) + 1);
-			if(langs == NULL)
-				goto error_errno;
-			c = strcpy((char *)langs + l, optarg);
-			const char **lang = langs;
-			while(1)
-			{
-				*lang = prefered_iso6392(c);
-				char *c2 = strchrnul(c, ',');
-				// ISO639-2 doubles
-				if(*lang == c)
-				{
-					if(c2 - c == 3)
-						for(const struct iso6392_map *ld = langdoubles; ld->prefered; ld++)
-							if(strncmp(ld->prefered, c, 3) == 0)
-							{
-								*(++lang) = ld->possible;
-								break;
-							}
-				}
-				else
-					*(++lang) = c;
-				lang++;
-				if(*c2 == '\0')
-					break;
-				*c2 = '\0';
-				c = c2 + 1;
-			}
-			*lang = NULL;
-		}
 		case 'i':
 		case 'c':
 			operation = c;

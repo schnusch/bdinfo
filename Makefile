@@ -30,10 +30,17 @@ ifdef NO_STRIP
 	STRIP = @:
 endif
 
+ifdef REQUIRE_LANGUAGES
+	CFLAGS += -DREQUIRE_LANGS
+	MAN_COMPRESS = sed -e 's,\\fR\[\\fILANGUAGES\\fR\]$$, LANGUAGES,' $< | $(GZ)
+else
+	MAN_COMPRESS = $(GZ) < $<
+endif
+
 all: bdinfo bdinfo.1.gz
 
 clean:
-	-$(RM) -fr $(LIBBLURAY) bdinfo bdinfo.1.gz *.o *.a
+	-$(RM) -fr $(LIBBLURAY) bdinfo bdinfo.1.gz *.o
 
 install: bdinfo bdinfo.1.gz
 	$(INSTALL) -Dm 0755 -t $(DESTDIR)$(PREFIX)/bin bdinfo
@@ -44,7 +51,7 @@ bdinfo: bdinfo.c chapters.o mempool.o util.o $(BDINFO_OPT_DEPENDS)
 	$(STRIP) $@
 
 bdinfo.1.gz: bdinfo.1
-	$(GZ) < $< > $@
+	$(MAN_COMPRESS) > $@
 
 mpls.o: mpls.c mpls.h $(LIBBLURAY)/.libs/libbluray.a
 	$(CC) -c -fPIC $(CFLAGS) -I$(LIBBLURAY)/src -o $@ $<
