@@ -888,7 +888,7 @@ int main(int argc, char **argv)
 	const char   **ffargv   = NULL;
 
 	uint32_t min_duration = -1;
-	int      filter_flags = TITLES_FILTER_DUP_TITLE;
+	int      filter_flags = TITLES_RELEVANT;
 	int      operation    = 'l';
 
 	const struct option long_options[] = {
