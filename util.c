@@ -1,3 +1,20 @@
+/* Copyright (C) 2016 Schnusch
+
+   This file is part of bdinfo.
+
+   bdinfo is free software: you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   bdinfo is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public License
+   along with bdinfo.  If not, see <http://www.gnu.org/licenses/>. */
+
 #define _GNU_SOURCE
 #include <endian.h>
 #include <inttypes.h>
@@ -46,7 +63,7 @@ int dec2uint(void *num, size_t n, const char *s)
 	return 0;
 }
 
-char time_buf[13];
+static char time_buf[13];
 const char *ticks2time(uint64_t ticks)
 {
 	int n = snprintf(time_buf, sizeof(time_buf), "%02" PRIu64 ":%02" PRIu64
@@ -84,7 +101,7 @@ const char *shell_escape(const char *src)
 			"abcdefghijklmnopqrstuvwxyz") == n)
 		return src;
 
-	n += strcnt(src, '\'') + 3;
+	n += strcnt(src, '\'') * 3 + 3;
 	free(shell);
 	shell = malloc(n);
 	if(shell != NULL)
@@ -96,8 +113,9 @@ const char *shell_escape(const char *src)
 			const char *c = src;
 			if(*src == '\'')
 			{
-				*dst++ = '\\';
-				c++;
+				memcpy(dst, "'\\'", 3);
+				dst += 3;
+				c   += 3;
 			}
 			c = strchrnul(c, '\'');
 			dst = mempcpy(dst, src, c - src);
