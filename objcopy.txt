@@ -1,0 +1,7 @@
+bd_open              bdinfo_bd_open
+bd_close             bdinfo_bd_close
+bd_read_file         bdinfo_bd_read_file
+bd_get_titles        bdinfo_bd_get_titles
+bd_get_title_info    bdinfo_bd_get_title_info
+bd_get_playlist_info bdinfo_bd_get_playlist_info
+bd_free_title_info   bdinfo_bd_free_title_info
