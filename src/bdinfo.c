@@ -16,7 +16,6 @@
    along with bdinfo.  If not, see <http://www.gnu.org/licenses/>. */
 
 #define BLURAY_SPELLING "Blu-ray"
-#define VERSION         "1.1.1"
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -30,10 +29,11 @@
 
 #include <libbluray/bluray.h>
 
+#include "config.h"
 #include "chapters.h"
 #include "iso-639-2.h"
 #include "mempool.h"
-#ifndef NO_CLIP_NAMES
+#ifdef GET_CLIPNAMES
 	#include "mpls.h"
 #endif
 #include "util.h"
@@ -172,7 +172,7 @@ struct tilist {
 		} \
 		while(0)
 
-#ifndef NO_CLIP_NAMES
+#ifdef GET_CLIPNAMES
 static int iter_angles(struct tilist *til,
 		int (*callback)(BLURAY_TITLE_INFO *, uint8_t, void *), void *data)
 {
@@ -404,7 +404,7 @@ int list_titles(struct tilist *til, bool extended, bool all_the_same)
 		BLURAY_TITLE_INFO *ti = til->ti;
 
 		FATALPRINTF("---\n"
-				"playlist: %05" PRIu32 ".mlps\n"
+				"playlist: %05" PRIu32 ".mpls\n"
 				"angles:   %" PRIu8 "\n"
 				"duration: %s\n"
 				"chapters: %" PRIu32 "\n"
@@ -420,7 +420,7 @@ int list_titles(struct tilist *til, bool extended, bool all_the_same)
 		{
 			BLURAY_CLIP_INFO *cl = &ti->clips[ic];
 			FATALPUTS("  - ");
-#ifndef NO_CLIP_NAMES
+#ifdef GET_CLIPNAMES
 			if(all_the_same)
 			{
 				// compact clip names
@@ -754,7 +754,7 @@ static struct tilist *tilist_create(struct tilist **ptil, BLURAY *bd,
 		clips = malloc(ti->angle_count * ti->clip_count * sizeof(uint32_t));
 		if(clips == NULL)
 			goto error;
-#ifndef NO_CLIP_NAMES
+#ifdef GET_CLIPNAMES
 		// parse clip names
 		char mpls_path[25];
 		errno = 0;
@@ -948,7 +948,7 @@ int main(int argc, char **argv)
 				goto error_errno;
 			return 0;
 		case 'v':
-			if(printf("%s " VERSION "\n"
+			if(printf("%s " PACKAGE_VERSION "\n"
 					"Copyright (C) 2016 Schnusch\n"
 					"License LGPLv3+: GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>.\n"
 					"This is free software: you are free to change and redistribute it.\n"

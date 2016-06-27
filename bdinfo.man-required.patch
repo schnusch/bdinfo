@@ -1,0 +1,11 @@
+@@ -25,8 +25,8 @@
+ .OP \-achiv
+ .OP \-t DURATION
+ .OP \-p PLAYLIST\fR[:\fIANGLE\fR]
+-.OP \-f\fR[\fILANGUAGES\fR]
+-.OP \-x\fR[\fILANGUAGES\fR]
++.OP \-f LANGUAGES
++.OP \-x LANGUAGES
+ .I INPUT
+ .RI [ OUTPUT \fR]
+ .YS

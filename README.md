@@ -6,19 +6,20 @@ extract metadata and chapters from blurays.
 
 ## Dependencies
 
-* libbluray
+* libbluray (optional, one may rely on the modified static libbluray
+  completely)
+* libxml2 (if you decide to build with modified static libbluray which is
+  needed for clip names extraction)
 * ffmpeg (for stream extraction)
-* libxml2 (if you decide to build with support for clip names which needs a
-  patched static libbluray)
 
 
-## Compilation
+## Installation
 
-* `NO_CLIP_NAMES` do not retrieve clip names and consequently do not build with
-  a static libbluray
-* `NO_STRIP`
-* `REQUIRE_LANGUAGES` do not make the argument for `-f` and `-x` optional but
-  required (like previous versions of bdinfo)
+* run `./bootstrap` to create autoconf files
+* be sure to also check out git submodules if you wish use the modified static
+  libbluray
+* check `./configure --help` for options
+* run `./configure ...`, `make`, `make install`
 
 
 ## Functionality
@@ -43,7 +44,7 @@ Get Blu-ray info and extract tracks with ffmpeg.
   -v, --version              output version information and exit
 ```
 Where `INPUT` is the root directory of the Blu-ray or, if your distribution's
-libbluray supports it, a Blu-ray iso image.
+libbluray supports it, a Blu-ray image.
 
 
 ## Known Issues

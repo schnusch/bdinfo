@@ -31,7 +31,7 @@ Note: There is absolutely no copy protection circumvention!
 .RI [ OUTPUT \fR]
 .YS
 
-Note: \fIINPUT\fR is the root directory of the Blu-ray or, if your distribution's libbluray supports it, a Blu-ray iso image.
+Note: \fIINPUT\fR is the root directory of the Blu-ray or, if your distribution's libbluray supports it, a Blu-ray image.
 
 
 .SH OPTIONS
