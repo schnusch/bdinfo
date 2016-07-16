@@ -1,4 +1,4 @@
-AC_INIT([bdinfo], [1.2], [https://github.com/Schnusch/bdinfo/])
+AC_INIT([bdinfo], [1.3], [https://github.com/Schnusch/bdinfo/])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects tar-ustar dist-xz])
 AM_SILENT_RULES([yes])
