@@ -462,44 +462,24 @@ int list_titles(struct tilist *til, bool extended, bool all_the_same)
 #undef FATALPUTS
 #undef FATALPRINTF
 
-static void iter_streams(BLURAY_CLIP_INFO *cl,
+static void iter_streams(BLURAY_CLIP_INFO *cl, int skip_ig,
 		void (*callback)(BLURAY_STREAM_INFO *, void *), void *data)
 {
-	BLURAY_STREAM_INFO *base = cl->video_streams;
-	uint8_t ns = cl->video_stream_count;
-	while(1)
-	{
-		for(uint8_t is = 0; is < ns; is++)
-			callback(&base[is], data);
+	const struct stream_arrays {
+		BLURAY_STREAM_INFO *array;
+		uint8_t n;
+	} streams[] = {
+			{cl->video_streams,     cl->video_stream_count},
+			{cl->sec_video_streams, cl->sec_video_stream_count},
+			{cl->audio_streams,     cl->audio_stream_count},
+			{cl->sec_audio_streams, cl->sec_audio_stream_count},
+			{cl->pg_streams,        cl->pg_stream_count},
+			{cl->ig_streams,        cl->ig_stream_count}
+	};
 
-		if(base == cl->video_streams)
-		{
-			base = cl->sec_video_streams;
-			ns   = cl->sec_video_stream_count;
-		}
-		else if(base == cl->sec_video_streams)
-		{
-			base = cl->audio_streams;
-			ns   = cl->audio_stream_count;
-		}
-		else if(base == cl->audio_streams)
-		{
-			base = cl->sec_audio_streams;
-			ns   = cl->sec_audio_stream_count;
-		}
-		else if(base == cl->sec_audio_streams)
-		{
-			base = cl->pg_streams;
-			ns   = cl->pg_stream_count;
-		}
-		else if(base == cl->pg_streams)
-		{
-			base = cl->ig_streams;
-			ns   = cl->ig_stream_count;
-		}
-		else
-			break;
-	}
+	for(size_t j = 0; j < sizeof(streams) / sizeof(streams[0]) - !!skip_ig; j++)
+		for(uint8_t is = 0; is < streams[j].n; is++)
+			callback(&streams[j].array[is], data);
 }
 
 struct ffargv_count {
@@ -577,7 +557,7 @@ static void ffargv_fill(BLURAY_STREAM_INFO *st, void *data)
 }
 
 const char **generate_ffargv(struct tilist *til, const char **langs,
-		const char *src, const char *dst, int chapterfd)
+		const char *src, const char *dst, int chapterfd, int skip_ig)
 {
 	/*
 	ffmpeg -playlist %d -angle %d -i bluray:%s [-i /proc/self/fd/%d]
@@ -602,7 +582,7 @@ const char **generate_ffargv(struct tilist *til, const char **langs,
 	cnt.maps  = 0;
 	cnt.metas = 0;
 	cnt.convs = 0;
-	iter_streams(&ti->clips[0], &ffargv_count, &cnt);
+	iter_streams(&ti->clips[0], skip_ig, &ffargv_count, &cnt);
 	ffargc += 2 * (cnt.maps + cnt.metas) + cnt.argc;
 	ffargn += cnt.maps * 11
 			+ cnt.metas * (12 + DECIMAL_BUFFER_LEN(uint16_t) + 1 + 12 + 1)
@@ -640,7 +620,7 @@ const char **generate_ffargv(struct tilist *til, const char **langs,
 	*ff.argp1++ = "copy";
 	// argvify mappings
 	ff.i = 0;
-	iter_streams(&ti->clips[0], &ffargv_fill, &ff);
+	iter_streams(&ti->clips[0], skip_ig, &ffargv_fill, &ff);
 	if(chapterfd != -1)
 	{
 		*ff.argp1++ = "-map_chapters";
@@ -890,6 +870,7 @@ int main(int argc, char **argv)
 	uint32_t min_duration = -1;
 	int      filter_flags = TITLES_RELEVANT;
 	int      operation    = 'l';
+	int      skip_ig      = 0;
 
 	const struct option long_options[] = {
 			{"time",        required_argument, NULL, 't'},
@@ -905,6 +886,7 @@ int main(int argc, char **argv)
 			{"ffmpeg",      optional_argument, NULL, 'f'},
 			{"remux",       optional_argument, NULL, 'x'},
 #endif
+			{"skip-igs",    no_argument,       NULL, 's'},
 			{"help",        no_argument,       NULL, 'h'},
 			{"version",     no_argument,       NULL, 'v'},
 			{NULL,          0,                 NULL, 0}};
@@ -942,6 +924,7 @@ int main(int argc, char **argv)
 					"  -x, --remux[=LANGUAGES]    extract all or only streams of given or undefined\n"
 					"                             languages with ffmpeg\n"
 #endif
+					"  -s, --skip-igs             Skip interactive graphic streams on extraction\n"
 					"  -h, --help                 display this help and exit\n"
 					"  -v, --version              output version information and exit\n",
 					argv[0]) < 0)
@@ -1018,6 +1001,9 @@ int main(int argc, char **argv)
 		}
 		case 'a':
 			filter_flags = 0;
+			break;
+		case 's':
+			skip_ig = 1;
 			break;
 		case 'f':
 		case 'x':
@@ -1156,7 +1142,7 @@ int main(int argc, char **argv)
 			if(operation == 'f')
 			{
 				// generate ffmpeg call without chapter pipe
-				ffargv = generate_ffargv(ti_first, langs, src, dst, 0);
+				ffargv = generate_ffargv(ti_first, langs, src, dst, 0, skip_ig);
 				if(ffargv == NULL)
 					goto error_errno;
 
@@ -1183,7 +1169,7 @@ int main(int argc, char **argv)
 					goto error_errno;
 
 				// generate ffmpeg call with chapter pipe
-				ffargv = generate_ffargv(ti_first, langs, src, dst, fds[0]);
+				ffargv = generate_ffargv(ti_first, langs, src, dst, fds[0], skip_ig);
 				free(langs);
 				if(ffargv == NULL)
 				{

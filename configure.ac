@@ -15,6 +15,7 @@ AC_ARG_WITH([system-libbluray], [AS_HELP_STRING([--without-system-libbluray],
 		[do not use system's libbluray])])
 
 AC_PROG_CC_C99
+AM_PROG_CC_C_O
 AC_PROG_INSTALL
 
 AS_IF([test "$enable_clipnames" != "no"], [

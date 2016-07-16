@@ -1,3 +1,4 @@
 [submodule "libbluray"]
 	path = src/libbluray
 	url = https://git.videolan.org/git/libbluray.git
+	ignore = dirty
