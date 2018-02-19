@@ -1,25 +1,19 @@
 # bdinfo
 
-Get bluray info and extract tracks, because ffmpeg is currently unable to
-extract metadata and chapters from blurays.
+Get bluray info and extract tracks including language metadata and chapters,
+which ffmpeg is currently unable to do.
 
 
 ## Dependencies
 
-* libbluray (optional, one may rely on the modified static libbluray
-  completely)
-* libxml2 (if you decide to build with modified static libbluray which is
-  needed for clip names extraction)
-* ffmpeg (for stream extraction)
+* libbluray >= 1.0.0
+* ffmpeg (for remuxing)
 
 
 ## Installation
 
-* run `./bootstrap` to create autoconf files
-* be sure to also check out git submodules if you wish use the modified static
-  libbluray
-* check `./configure --help` for options
-* run `./configure ...`, `make`, `make install`
+* `make [PKGCONF=<pkgconf>]`
+* `make [PREFIX=<prefix>] [DESTDIR=<destdir>] [INSTALL=<install>] install`
 
 
 ## Functionality
@@ -35,18 +29,15 @@ Get Blu-ray info and extract tracks with ffmpeg.
                              ANGLE
   -a, --all                  do not omit duplicate titles
   -i, --info                 print more detailed information
-  -c, --chapters             print chapter xml
+  -c, --chapters             print XML chapters
   -f, --ffmpeg[=LANGUAGES]   print ffmpeg call to extract all or only streams of
                              given or undefined languages
   -x, --remux[=LANGUAGES]    extract all or only streams of given or undefined
                              languages with ffmpeg
+  -L, --lossless             transcode lossless audio tracks to flac
+  -s, --skip-igs             skip interactive graphic streams on extraction
   -h, --help                 display this help and exit
   -v, --version              output version information and exit
 ```
 Where `INPUT` is the root directory of the Blu-ray or, if your distribution's
 libbluray supports it, a Blu-ray image.
-
-
-## Known Issues
-
-* absolutely no copy protection circumvention

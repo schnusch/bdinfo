@@ -1,5 +1,5 @@
 ." Last modification 23.04.2016 @ Schnusch
-.TH bdinfo 1 "2016-04-23" "V1.0" "bdinfo manpage"
+.TH bdinfo 1 "2018-02-19" "V1.0" "bdinfo manpage"
 
 
 .SH NAME
@@ -22,7 +22,7 @@ Note: There is absolutely no copy protection circumvention!
 
 .SH SYNOPSIS
 .SY bdinfo
-.OP \-achiv
+.OP \-achiLsv
 .OP \-t DURATION
 .OP \-p PLAYLIST\fR[:\fIANGLE\fR]
 .OP \-f\fR[\fILANGUAGES\fR]
@@ -36,14 +36,10 @@ Note: \fIINPUT\fR is the root directory of the Blu-ray or, if your distribution'
 
 .SH OPTIONS
 
-.IP "\fB\-a, \-\-all"
-Select all titles, do not omit duplicates
-.IP "\fB\-c, \-\-chapters"
-Print chapters-xml to stdout
-.IP "\fB-h, --help"
-Show basic command-line help
-.IP "\fB\-i, \-\-info"
-List extended information for all selected titles
+.IP "\fB\-t, \-\-time\fR=\fIDURATION\fR"
+Select all titles which are at least
+.I DURATION
+seconds long
 .IP "\fB\-p, \-\-playlist\fR=\fIPLAYLIST\fR[\fI:ANGLE\fR]"
 Select playlist
 .I PLAYLIST
@@ -52,7 +48,13 @@ and all angles unless
 is specified,
 .br
 in that case only the given angle is selected.
-.IP "\fB\-f, \-\-ffmpeg\fR=\fILANGUAGES\fR"
+.IP "\fB\-a, \-\-all"
+Select all titles, do not omit duplicates
+.IP "\fB\-i, \-\-info"
+List extended information for all selected titles
+.IP "\fB\-c, \-\-chapters"
+Print chapters-xml to stdout
+.IP "\fB\-f, \-\-ffmpeg\fR[=\fILANGUAGES\fR]"
 Print ffmpeg command for extracting streams,
 .br
 which language-tags match one of \fILANGUAGES\fR or are \fIundefined\fR.
@@ -65,16 +67,18 @@ e.g. \fIger,eng\fR for German and English languages.
 
 
 Note: \fIOUTPUT\fR, which defines the output file, is required.
-.IP "\fB\-x, \-\-remux\fR=\fILANGUAGES\fR"
+.IP "\fB\-x, \-\-remux\fR[=\fILANGUAGES\fR]"
 Extract streams which language-tags match one of
 .I LANGUAGES
 or are \fIundefined\fR into \fIOUTPUT\fR.
 .br
-Basically it executes the ffmpeg command \fB\-f\fR would print.
-.IP "\fB\-t, \-\-time\fR=\fIDURATION\fR"
-Select all titles which are at least
-.I DURATION
-seconds long
+The ffmpeg command displayed by \fB\-f\fR is executed.
+.IP "\fB\-L, \-\-lossless"
+transcode lossless audio tracks to FLAC
+.IP "\fB\-s, \-\-skip-igs"
+skip interactive graphic streams on extraction
+.IP "\fB-h, --help"
+Show basic command-line help
 .IP "\fB-v, --version"
 Show version and license information
 

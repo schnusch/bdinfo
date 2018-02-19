@@ -1,17 +1,3 @@
-autom4te.cache/
 bdinfo
 bdinfo.1
-build-aux/
-config.h
-configure
-.deps/
-.dirstamp
-Makefile
-stamp-h1
-*.a
-*.in
-*.log
-*.m4
 *.o
-*.status
-*~

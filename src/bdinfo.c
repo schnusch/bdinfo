@@ -1,26 +1,32 @@
-/* Copyright (C) 2016 Schnusch
+/*
+Copyright (C) 2016, 2018 Schnusch
 
-   This file is part of bdinfo.
+This file is part of bdinfo.
 
-   bdinfo is free software: you can redistribute it and/or modify
-   it under the terms of the GNU Lesser General Public License as published by
-   the Free Software Foundation, either version 3 of the License, or
-   (at your option) any later version.
+bdinfo is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-   bdinfo is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU Lesser General Public License for more details.
+bdinfo is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
 
-   You should have received a copy of the GNU Lesser General Public License
-   along with bdinfo.  If not, see <http://www.gnu.org/licenses/>. */
+You should have received a copy of the GNU Lesser General Public License
+along with bdinfo.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
+#define BDINFO_VERSION  "?.?.?"
 #define BLURAY_SPELLING "Blu-ray"
 
 #define _GNU_SOURCE
 #include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
 #include <inttypes.h>
-#include <stdbool.h>
+#include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,16 +35,11 @@
 
 #include <libbluray/bluray.h>
 
-#include "config.h"
-#include "chapters.h"
 #include "iso-639-2.h"
-#include "mempool.h"
-#ifdef GET_CLIPNAMES
-	#include "mpls.h"
-#endif
 #include "util.h"
 
 #define ANGLE_WILDCARD ((uint8_t)-1)
+
 
 struct enum_map {
 	int value;
@@ -53,114 +54,112 @@ static const char *enum_map_search(const struct enum_map *map, int value)
 	return NULL;
 }
 
-const char *get_stream_type(uint8_t type)
+static const char *get_stream_type(uint8_t type)
 {
 	static const struct enum_map types[] = {
-			{BLURAY_STREAM_TYPE_VIDEO_MPEG1,             "MPEG-1"},
-			{BLURAY_STREAM_TYPE_VIDEO_MPEG2,             "MPEG-2"},
-			{BLURAY_STREAM_TYPE_VIDEO_H264,              "H.264/MPEG-4 AVC"},
-			{BLURAY_STREAM_TYPE_VIDEO_VC1,               "VC-1/SMPTE 421M"},
-			{BLURAY_STREAM_TYPE_AUDIO_MPEG1,             "MPEG-1"},
-			{BLURAY_STREAM_TYPE_AUDIO_MPEG2,             "MPEG-2"},
-			{BLURAY_STREAM_TYPE_AUDIO_LPCM,              "PCM"},
-			{BLURAY_STREAM_TYPE_AUDIO_AC3,               "AC3"},
-			{BLURAY_STREAM_TYPE_AUDIO_DTS,               "DTS"},
-			{BLURAY_STREAM_TYPE_AUDIO_TRUHD,             "TrueHD"},
-			{BLURAY_STREAM_TYPE_AUDIO_AC3PLUS,           "AC3+"},
-			{BLURAY_STREAM_TYPE_AUDIO_AC3PLUS_SECONDARY, "AC3+"},
-			{BLURAY_STREAM_TYPE_AUDIO_DTSHD,             "DTS-HD"},
-			{BLURAY_STREAM_TYPE_AUDIO_DTSHD_SECONDARY,   "DTS-HD"},
-			{BLURAY_STREAM_TYPE_AUDIO_DTSHD_MASTER,      "DTS-HD MA"},
-			{BLURAY_STREAM_TYPE_SUB_PG,                  "HDMV/PGS"},
-			{BLURAY_STREAM_TYPE_SUB_IG,                  "HDMV/IGS"},
-			{BLURAY_STREAM_TYPE_SUB_TEXT,                "HDMV/TEXT"},
-			{0, NULL}};
+		{BLURAY_STREAM_TYPE_VIDEO_MPEG1,             "MPEG-1"},
+		{BLURAY_STREAM_TYPE_VIDEO_MPEG2,             "MPEG-2"},
+		{BLURAY_STREAM_TYPE_VIDEO_H264,              "H.264/MPEG-4 AVC"},
+		{BLURAY_STREAM_TYPE_VIDEO_VC1,               "VC-1/SMPTE 421M"},
+		{BLURAY_STREAM_TYPE_AUDIO_MPEG1,             "MPEG-1"},
+		{BLURAY_STREAM_TYPE_AUDIO_MPEG2,             "MPEG-2"},
+		{BLURAY_STREAM_TYPE_AUDIO_LPCM,              "PCM"},
+		{BLURAY_STREAM_TYPE_AUDIO_AC3,               "AC3"},
+		{BLURAY_STREAM_TYPE_AUDIO_DTS,               "DTS"},
+		{BLURAY_STREAM_TYPE_AUDIO_TRUHD,             "TrueHD"},
+		{BLURAY_STREAM_TYPE_AUDIO_AC3PLUS,           "AC3+"},
+		{BLURAY_STREAM_TYPE_AUDIO_AC3PLUS_SECONDARY, "AC3+"},
+		{BLURAY_STREAM_TYPE_AUDIO_DTSHD,             "DTS-HD"},
+		{BLURAY_STREAM_TYPE_AUDIO_DTSHD_SECONDARY,   "DTS-HD"},
+		{BLURAY_STREAM_TYPE_AUDIO_DTSHD_MASTER,      "DTS-HD MA"},
+		{BLURAY_STREAM_TYPE_SUB_PG,                  "HDMV/PGS"},
+		{BLURAY_STREAM_TYPE_SUB_IG,                  "HDMV/IGS"},
+		{BLURAY_STREAM_TYPE_SUB_TEXT,                "HDMV/TEXT"},
+		{0, NULL}
+	};
 	return enum_map_search(types, type);
 }
 
-const char *get_video_format(uint8_t format)
+static const char *get_video_format(uint8_t format)
 {
 	static const struct enum_map formats[] = {
-			{BLURAY_VIDEO_FORMAT_480I,  "480i"},
-			{BLURAY_VIDEO_FORMAT_576I,  "576i"},
-			{BLURAY_VIDEO_FORMAT_480P,  "480p"},
-			{BLURAY_VIDEO_FORMAT_1080I, "1080i"},
-			{BLURAY_VIDEO_FORMAT_720P,  "720p"},
-			{BLURAY_VIDEO_FORMAT_1080P, "1080p"},
-			{BLURAY_VIDEO_FORMAT_576P,  "576p"},
-			{0, NULL}};
+		{BLURAY_VIDEO_FORMAT_480I,  "480i"},
+		{BLURAY_VIDEO_FORMAT_576I,  "576i"},
+		{BLURAY_VIDEO_FORMAT_480P,  "480p"},
+		{BLURAY_VIDEO_FORMAT_1080I, "1080i"},
+		{BLURAY_VIDEO_FORMAT_720P,  "720p"},
+		{BLURAY_VIDEO_FORMAT_1080P, "1080p"},
+		{BLURAY_VIDEO_FORMAT_576P,  "576p"},
+		{0, NULL}
+	};
 	return enum_map_search(formats, format);
 }
 
-const char *get_video_rate(uint8_t rate)
+static const char *get_video_rate(uint8_t rate)
 {
 	static const struct enum_map rates[] = {
-			{BLURAY_VIDEO_RATE_24000_1001, "23.976 fps"},
-			{BLURAY_VIDEO_RATE_24,         "24 fps"},
-			{BLURAY_VIDEO_RATE_25,         "25 fps"},
-			{BLURAY_VIDEO_RATE_30000_1001, "29.97 fps"},
-			{BLURAY_VIDEO_RATE_50,         "50 fps"},
-			{BLURAY_VIDEO_RATE_60000_1001, "59.94 fps"},
-			{0, NULL}};
+		{BLURAY_VIDEO_RATE_24000_1001, "23.976 fps"},
+		{BLURAY_VIDEO_RATE_24,         "24 fps"},
+		{BLURAY_VIDEO_RATE_25,         "25 fps"},
+		{BLURAY_VIDEO_RATE_30000_1001, "29.97 fps"},
+		{BLURAY_VIDEO_RATE_50,         "50 fps"},
+		{BLURAY_VIDEO_RATE_60000_1001, "59.94 fps"},
+		{0, NULL}
+	};
 	return enum_map_search(rates, rate);
 }
 
-const char *get_aspect_ratio(uint8_t ratio)
+static const char *get_aspect_ratio(uint8_t ratio)
 {
 	static const struct enum_map ratios[] = {
-			{BLURAY_ASPECT_RATIO_4_3,  "4:3"},
-			{BLURAY_ASPECT_RATIO_16_9, "16:9"},
-			{0, NULL}};
+		{BLURAY_ASPECT_RATIO_4_3,  "4:3"},
+		{BLURAY_ASPECT_RATIO_16_9, "16:9"},
+		{0, NULL}
+	};
 	return enum_map_search(ratios, ratio);
 }
 
-const char *get_audio_format(uint8_t format)
+static const char *get_audio_format(uint8_t format)
 {
 	static const struct enum_map formats[] = {
-			{BLURAY_AUDIO_FORMAT_MONO,       "Mono"},
-			{BLURAY_AUDIO_FORMAT_STEREO,     "Stereo"},
-			{BLURAY_AUDIO_FORMAT_MULTI_CHAN, "Multi channel"},
-			{BLURAY_AUDIO_FORMAT_COMBO,      "Combo"},
-			{0, NULL}};
+		{BLURAY_AUDIO_FORMAT_MONO,       "Mono"},
+		{BLURAY_AUDIO_FORMAT_STEREO,     "Stereo"},
+		{BLURAY_AUDIO_FORMAT_MULTI_CHAN, "Multi channel"},
+		{BLURAY_AUDIO_FORMAT_COMBO,      "Combo"},
+		{0, NULL}
+	};
 	return enum_map_search(formats, format);
 }
 
-const char *get_audio_rate(uint8_t rate)
+static const char *get_audio_rate(uint8_t rate)
 {
 	static const struct enum_map rates[] = {
-			{BLURAY_AUDIO_RATE_48,        "48 kHz"},
-			{BLURAY_AUDIO_RATE_96,        "96 kHz"},
-			{BLURAY_AUDIO_RATE_96_COMBO,  "96 kHz"},
-			{BLURAY_AUDIO_RATE_192,       "192 kHz"},
-			{BLURAY_AUDIO_RATE_192_COMBO, "192 kHz"},
-			{0, NULL}};
+		{BLURAY_AUDIO_RATE_48,        "48 kHz"},
+		{BLURAY_AUDIO_RATE_96,        "96 kHz"},
+		{BLURAY_AUDIO_RATE_96_COMBO,  "96 kHz"},
+		{BLURAY_AUDIO_RATE_192,       "192 kHz"},
+		{BLURAY_AUDIO_RATE_192_COMBO, "192 kHz"},
+		{0, NULL}
+	};
 	return enum_map_search(rates, rate);
 }
 
-struct pllist {
-	uint32_t pl;
-	uint8_t an;
-	struct pllist *next;
-};
-
-struct tilist {
-	BLURAY_TITLE_INFO *ti;
-	uint32_t *clips;
-	uint8_t an[sizeof(void *) / sizeof(uint8_t)];
-	struct tilist *next;
+struct playlist_selector {
+	uint32_t playlist;
+	uint8_t  angle;
 };
 
 #define FATALPUTC(c) \
 		do \
 		{ \
-			if(fputc((c), stdout) == EOF) \
+			if(fputc(c, stdout) == EOF) \
 				return -1; \
 		} \
 		while(0)
 #define FATALPUTS(s) \
 		do \
 		{ \
-			if(fputs((s), stdout) == EOF) \
+			if(fputs(s, stdout) == EOF) \
 				return -1; \
 		} \
 		while(0)
@@ -172,289 +171,196 @@ struct tilist {
 		} \
 		while(0)
 
-#ifdef GET_CLIPNAMES
-static int iter_angles(struct tilist *til,
-		int (*callback)(BLURAY_TITLE_INFO *, uint8_t, void *), void *data)
+static int print_stream_extended(const BLURAY_STREAM_INFO *stream)
 {
-	if(til->an[0] == ANGLE_WILDCARD)
+	FATALPRINTF("          - pid:          0x%04"PRIx16"\n", stream->pid);
+	if(stream->lang[0])
+		FATALPRINTF("            language:     %s\n", iso6392_bcode((const char *)stream->lang));
+	const char *s;
+	if((s = get_stream_type(stream->coding_type)))
+		FATALPRINTF("            codec:        %s\n", s);
+	return 0;
+}
+
+static int print_video_stream_extended(const BLURAY_STREAM_INFO *stream)
+{
+	if(print_stream_extended(stream) < 0)
+		return -1;
+	const char *s;
+	if((s = get_aspect_ratio(stream->aspect)))
+		FATALPRINTF("            aspect_ratio: %s\n", s);
+	if((s = get_video_format(stream->format)))
+		FATALPRINTF("            resolution:   %s\n", s);
+	if((s = get_video_rate(stream->rate)))
+		FATALPRINTF("            rate:         %s\n", s);
+	return 0;
+}
+
+static int print_audio_stream_extended(const BLURAY_STREAM_INFO *stream)
+{
+	if(print_stream_extended(stream) < 0)
+		return -1;
+	const char *s;
+	if((s = get_audio_format(stream->format)) != NULL)
+		FATALPRINTF("            channels:     %s\n", s);
+	if((s = get_audio_rate(stream->rate)) != NULL)
+		FATALPRINTF("            rate:         %s\n", s);
+	return 0;
+}
+
+static int print_streams(int (*print)(const BLURAY_STREAM_INFO *), ...)
+{
+	va_list ap;
+	va_start(ap, print);
+	int err = 0;
+	const BLURAY_STREAM_INFO *streams;
+	while((streams = va_arg(ap, void *)))
 	{
-		for(uint8_t ia = 0; ia < til->ti->angle_count; ia++)
-			if(callback(til->ti, ia, data) == -1)
-				return -1;
-		til = til->next;
+		size_t numstreams = va_arg(ap, size_t);
+		for(size_t i = 0; i < numstreams; i++)
+		{
+			if(!print)
+			{
+				if(printf("%s%s", i == 0 ? "" : ", ", streams[i].lang[0]
+						? iso6392_bcode((const char *)streams[i].lang) : "und") < 0)
+					goto err;
+			}
+			else if(print(streams + i) < 0)
+				goto err;
+		}
+		continue;
+	err:
+		err = -1;
+		break;
 	}
+	va_end(ap);
+	if(!err && !print && fputs("]\n", stdout) == EOF)
+		err = -1;
+	return err;
+}
+
+static int print_all_streams(const BLURAY_CLIP_INFO *clip, int extended)
+{
+	int (*print_video)(const BLURAY_STREAM_INFO *) = extended ? print_video_stream_extended : NULL;
+	int (*print_audio)(const BLURAY_STREAM_INFO *) = extended ? print_audio_stream_extended : NULL;
+	int (*print_subs )(const BLURAY_STREAM_INFO *) = extended ? print_stream_extended       : NULL;
+	int (*print_other)(const BLURAY_STREAM_INFO *) = extended ? print_stream_extended       : NULL;
+	if(clip->video_stream_count == 0 && clip->sec_video_stream_count == 0)
+		print_video = NULL;
+	if(clip->audio_stream_count == 0 && clip->sec_audio_stream_count == 0)
+		print_audio = NULL;
+	if(clip->pg_stream_count == 0)
+		print_subs = NULL;
+	if(clip->ig_stream_count == 0)
+		print_other = NULL;
+
+	FATALPRINTF("    streams:\n        video:%s", print_video ? "\n" : "     [");
+	if(print_streams(print_video, clip->video_streams, clip->video_stream_count,
+			clip->sec_video_streams, clip->sec_video_stream_count, NULL) < 0)
+		return -1;
+
+	FATALPRINTF("        audio:%s", extended ? "\n" : "     [");
+	if(print_streams(print_audio, clip->audio_streams, clip->audio_stream_count,
+			clip->sec_audio_streams, clip->sec_audio_stream_count, NULL) < 0)
+		return -1;
+
+	FATALPRINTF("        subtitles:%s", extended ? "\n" : " [");
+	if(print_streams(print_subs, clip->pg_streams, clip->pg_stream_count, NULL) < 0)
+		return -1;
+
+	FATALPRINTF("        other:%s", extended ? "\n" : "     [");
+	if(print_streams(print_other, clip->ig_streams, clip->ig_stream_count, NULL) < 0)
+		return -1;
+
+	return 0;
+}
+
+static int print_clip(const BLURAY_CLIP_INFO *clip, int extended)
+{
+	FATALPRINTF("  - name: %s%s.m2ts\n", extended ? "    " : "", clip->clip_id);
+	if(extended)
+	{
+		char timebuf[22];
+		FATALPRINTF("    start:    %s\n", ticks2time(timebuf, clip->start_time));
+		FATALPRINTF("    duration: %s\n", ticks2time(timebuf, clip->out_time - clip->in_time));
+		FATALPRINTF("    skip:     %s\n", ticks2time(timebuf, clip->in_time));
+	}
+	if(print_all_streams(clip, extended) < 0)
+		return -1;
+
+	return 0;
+}
+
+static int print_clips(const BLURAY_CLIP_INFO *clips, size_t numclips, int extended)
+{
+	if(numclips == 0)
+		FATALPUTS("clips:    []\n");
 	else
 	{
-		for(; til; til = til->next)
-			for(uint8_t ia = 0; ia < sizeof(til->an) / sizeof(til->an[0]); ia++)
-			{
-				if(til->an[ia] == ANGLE_WILDCARD)
-					goto schnorpf;
-				if(callback(til->ti, til->an[ia], data) == -1)
-					return -1;
-			}
-	schnorpf:
-		;
-	}
-	return 0;
-}
+		if(numclips == 1)
+			FATALPUTS("clips:\n");
+		else
+			FATALPRINTF("clips:    # %zu\n", numclips);
 
-struct clip_payload {
-	uint32_t *clip;
-	uint32_t  tmp;
-	bool      first;
-};
-
-static int print_clip_names(BLURAY_TITLE_INFO *ti, uint8_t an, void *data_)
-{
-	struct clip_payload *data = data_;
-	FATALPRINTF("%s%" PRIu8 ": %05" PRIu32 ".m2ts", data->first ? "{" : ", ",
-			an, *data->clip);
-	data->clip += ti->angle_count;
-	data->first = false;
-	return 0;
-}
-
-static int compare_clip_names(BLURAY_TITLE_INFO *ti,
-		uint8_t an __attribute__((unused)), void *data_)
-{
-	struct clip_payload *data = data_;
-	if(data->first)
-	{
-		data->first = false;
-		data->tmp   = *data->clip;
-	}
-	else if(*data->clip != data->tmp)
-		return -1;
-	data->clip += ti->clip_count;
-	return 0;
-}
-#endif
-
-static int print_streams(BLURAY_CLIP_INFO *cl, bool extended)
-{
-	if(cl->video_stream_count > 0 || cl->audio_stream_count > 0
-			|| cl->pg_stream_count > 0 || cl->ig_stream_count > 0
-			|| cl->sec_video_stream_count > 0
-			|| cl->sec_audio_stream_count > 0)
-	{
-		FATALPUTS("streams:\n");
-		// video
-		if(cl->video_stream_count > 0 || cl->sec_video_stream_count)
-		{
-			bool first = true;
-			FATALPUTS("        video:");
-			if(!extended && cl->pg_stream_count > 0)
-				FATALPUTS("   ");
-			BLURAY_STREAM_INFO *sts = cl->video_streams;
-			uint8_t ns = cl->video_stream_count;
-			goto video_start;
-			do
-			{
-				sts = cl->sec_video_streams;
-				ns  = cl->sec_video_stream_count;
-			video_start:
-				for(uint8_t is = 0; is < ns; is++)
-				{
-					BLURAY_STREAM_INFO *st = &sts[is];
-					if(extended)
-					{
-						FATALPRINTF("\n          - pid:          0x%04" PRIx16,
-								st->pid);
-						if(st->lang[0] != '\0')
-							FATALPRINTF("\n            language:     %s", iso6392_bcode((char *)st->lang));
-						const char *s;
-						if((s = get_stream_type(st->coding_type)) != NULL)
-							FATALPRINTF("\n            codec:        %s", s);
-						if((s = get_video_format(st->format)) != NULL)
-							FATALPRINTF("\n            resolution:   %s", s);
-						if((s = get_aspect_ratio(st->aspect)) != NULL)
-							FATALPRINTF("\n            aspect_ratio: %s", s);
-						if((s = get_video_rate(st->rate)) != NULL)
-							FATALPRINTF("\n            rate:         %s", s);
-					}
-					else
-					{
-						FATALPRINTF("%s%s", first ? " [" : ", ",
-								st->lang[0] == '\0' ? "und" : iso6392_bcode((char *)st->lang));
-						first = false;
-					}
-				}
-			}
-			while(sts != cl->sec_video_streams);
-			if(!extended)
-				FATALPUTC(']');
-			FATALPUTC('\n');
-		}
-		// audio
-		if(cl->audio_stream_count > 0 || cl->sec_audio_stream_count)
-		{
-			bool first = true;
-			FATALPUTS("        audio:");
-			if(!extended && cl->pg_stream_count > 0)
-				FATALPUTS("   ");
-			BLURAY_STREAM_INFO *sts = cl->audio_streams;
-			uint8_t ns = cl->audio_stream_count;
-			goto audio_start;
-			do
-			{
-				sts = cl->sec_audio_streams;
-				ns  = cl->sec_audio_stream_count;
-			audio_start:
-				for(uint8_t is = 0; is < ns; is++)
-				{
-					BLURAY_STREAM_INFO *st = &sts[is];
-					if(extended)
-					{
-						FATALPRINTF("\n          - pid:      0x%04" PRIx16,
-								st->pid);
-						if(st->lang[0] != '\0')
-							FATALPRINTF("\n            language: %s", iso6392_bcode((char *)st->lang));
-						const char *s;
-						if((s = get_stream_type(st->coding_type)) != NULL)
-							FATALPRINTF("\n            codec:    %s", s);
-						if((s = get_audio_format(st->format)) != NULL)
-							FATALPRINTF("\n            channels: %s", s);
-						if((s = get_audio_rate(st->rate)) != NULL)
-							FATALPRINTF("\n            rate:     %s", s);
-					}
-					else
-					{
-						FATALPRINTF("%s%s", first ? " [" : ", ",
-								st->lang[0] == '\0' ? "und" : iso6392_bcode((char *)st->lang));
-						first = false;
-					}
-				}
-			}
-			while(sts != cl->sec_audio_streams);
-			if(!extended)
-				FATALPUTC(']');
-			FATALPUTC('\n');
-		}
-		// subtitles
-		if(cl->pg_stream_count > 0)
-		{
-			bool first = true;
-			FATALPUTS("        subtitle:");
-			for(uint8_t is = 0; is < cl->pg_stream_count; is++)
-			{
-				BLURAY_STREAM_INFO *st = &cl->pg_streams[is];
-				if(extended)
-				{
-					FATALPRINTF("\n          - pid:      0x%04" PRIx16, st->pid);
-					if(st->lang[0] != '\0')
-						FATALPRINTF("\n            language: %s", iso6392_bcode((char *)st->lang));
-					const char *s;
-					if((s = get_stream_type(st->coding_type)) != NULL)
-						FATALPRINTF("\n            codec:    %s", s);
-				}
-				else
-				{
-					FATALPRINTF("%s%s", first ? " [" : ", ",
-							st->lang[0] == '\0' ? "und" : iso6392_bcode((char *)st->lang));
-					first = false;
-				}
-			}
-			if(!extended)
-				FATALPUTC(']');
-			FATALPUTC('\n');
-		}
-		// other
-		if(cl->ig_stream_count > 0)
-		{
-			bool first = true;
-			FATALPUTS("        other:");
-			if(!extended && cl->pg_stream_count > 0)
-				FATALPUTS("   ");
-			for(uint8_t is = 0; is < cl->ig_stream_count; is++)
-			{
-				BLURAY_STREAM_INFO *st = &cl->ig_streams[is];
-				if(extended)
-				{
-					FATALPRINTF("\n          - pid:      0x%04" PRIx16,
-							st->pid);
-					if(st->lang[0] != '\0')
-						FATALPRINTF("\n            language: %s", iso6392_bcode((char *)st->lang));
-					const char *s;
-					if((s = get_stream_type(st->coding_type)) != NULL)
-						FATALPRINTF("\n            codec:    %s", s);
-				}
-				else
-				{
-					FATALPRINTF("%s%s", first ? " [" : ", ",
-							st->lang[0] == '\0' ? "und" : iso6392_bcode((char *)st->lang));
-					first = false;
-				}
-			}
-			if(!extended)
-				FATALPUTC(']');
-			FATALPUTC('\n');
-		}
-	}
-	return 0;
-}
-
-/**
- * list available tracks
- */
-int list_titles(struct tilist *til, bool extended, bool all_the_same)
-{
-	while(til)
-	{
-		BLURAY_TITLE_INFO *ti = til->ti;
-
-		FATALPRINTF("---\n"
-				"playlist: %05" PRIu32 ".mpls\n"
-				"angles:   %" PRIu8 "\n"
-				"duration: %s\n"
-				"chapters: %" PRIu32 "\n"
-				"clips:", ti->playlist, ti->angle_count,
-				ticks2time(ti->duration), ti->chapter_count);
-		if(ti->clip_count == 0)
-			FATALPUTS("    []");
-		if(ti->clip_count > 1)
-			FATALPRINTF("  # %" PRIu32, ti->clip_count);
-		FATALPUTC('\n');
-
-		for(uint32_t ic = 0; ic < ti->clip_count; ic++)
-		{
-			BLURAY_CLIP_INFO *cl = &ti->clips[ic];
-			FATALPUTS("  - ");
-#ifdef GET_CLIPNAMES
-			if(all_the_same)
-			{
-				// compact clip names
-				struct clip_payload payload;
-				payload.clip  = &til->clips[ic];
-				payload.first = true;
-				all_the_same = iter_angles(til, &compare_clip_names, &payload) == 0;
-			}
-			FATALPRINTF("name%s: ", all_the_same ? "" : "s");
-			if(all_the_same)
-				FATALPRINTF("%05" PRIu32 ".m2ts", til->clips[ic]);
-			else
-			{
-				struct clip_payload payload;
-				payload.clip  = &til->clips[ic];
-				payload.first = true;
-				if(iter_angles(til, &print_clip_names, &payload) == -1)
-					return -1;
-				FATALPUTC('}');
-			}
-			FATALPUTS("\n    ");
-#endif
-			if(extended)
-			{
-				FATALPRINTF("start:    %s\n    ", ticks2time(cl->start_time));
-				FATALPRINTF("duration: %s\n    ", ticks2time(cl->out_time - cl->in_time));
-				FATALPRINTF("skip:     %s\n    ", ticks2time(cl->in_time));
-			}
-			if(print_streams(cl, extended) == -1)
+		for(size_t i = 0; i < numclips; i++)
+			if(print_clip(clips + i, extended) < 0)
 				return -1;
-		}
-
-		for(; til && til->ti == ti; til = til->next);
 	}
+	return 0;
+}
+
+static int print_title(const BLURAY_TITLE_INFO *title, int extended)
+{
+	char timebuf[22];
+	FATALPRINTF("---\n"
+			"playlist: %05"PRIu32".mpls\n"
+			"angles:   %"PRIu8"\n"
+			"duration: %s\n"
+			"chapters: %"PRIu32"\n",
+			title->playlist, title->angle_count,
+			ticks2time(timebuf, title->duration), title->chapter_count);
+	return print_clips(title->clips, title->clip_count, extended);
+}
+
+static int print_xml_chapters(const BLURAY_TITLE_INFO *title)
+{
+	static const char head[] =
+			"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+			"<Chapters>\n"
+			"\t<EditionEntry>\n"
+			"\t\t<EditionFlagHidden>0</EditionFlagHidden>\n"
+			"\t\t<EditionFlagDefault>0</EditionFlagDefault>\n";
+	static const char tail[] =
+			"\t</EditionEntry>\n"
+			"</Chapters>\n";
+
+	const BLURAY_TITLE_CHAPTER *chapters = title->chapters;
+	FATALPUTS(head);
+	for(uint32_t i = 0; i < title->chapter_count; i++)
+	{
+		char timebuf[22];
+		FATALPRINTF("\t\t<ChapterAtom>\n"
+				"\t\t\t<ChapterTimeStart>%s</ChapterTimeStart>\n"
+				"\t\t\t<ChapterFlagHidden>0</ChapterFlagHidden>\n"
+				"\t\t\t<ChapterFlagEnabled>1</ChapterFlagEnabled>\n"
+				"\t\t</ChapterAtom>\n",
+				ticks2time(timebuf, chapters[i].start));
+	}
+	FATALPUTS(tail);
+	return 0;
+}
+
+static int print_ff_chapters(const BLURAY_TITLE_INFO *title)
+{
+	const BLURAY_TITLE_CHAPTER *chapters = title->chapters;
+	FATALPUTS(";FFMETADATA1\n");
+	for(uint32_t i = 0; i < title->chapter_count; i++)
+		FATALPRINTF("[CHAPTER]\n"
+				"TIMEBASE=1/90000\n"
+				"START=%"PRIu64"\n"
+				"END=%"PRIu64"\n",
+				chapters[i].start,
+				chapters[i].start + chapters[i].duration);
 	return 0;
 }
 
@@ -462,445 +368,334 @@ int list_titles(struct tilist *til, bool extended, bool all_the_same)
 #undef FATALPUTS
 #undef FATALPRINTF
 
-static void iter_streams(BLURAY_CLIP_INFO *cl, int skip_ig,
-		void (*callback)(BLURAY_STREAM_INFO *, void *), void *data)
+static char **argv_from_strs(char *s, size_t n)
 {
-	const struct stream_arrays {
-		BLURAY_STREAM_INFO *array;
-		uint8_t n;
-	} streams[] = {
-			{cl->video_streams,     cl->video_stream_count},
-			{cl->sec_video_streams, cl->sec_video_stream_count},
-			{cl->audio_streams,     cl->audio_stream_count},
-			{cl->sec_audio_streams, cl->sec_audio_stream_count},
-			{cl->pg_streams,        cl->pg_stream_count},
-			{cl->ig_streams,        cl->ig_stream_count}
-	};
-
-	for(size_t j = 0; j < sizeof(streams) / sizeof(streams[0]) - !!skip_ig; j++)
-		for(uint8_t is = 0; is < streams[j].n; is++)
-			callback(&streams[j].array[is], data);
-}
-
-struct ffargv_count {
-	const char **langs;
-	size_t   argc;
-	uint16_t maps;
-	uint16_t metas;
-	uint8_t  convs;
-};
-
-struct ffarg {
-	const char **langs;
-	const char **argp1;
-	char        *argp2;
-	uint16_t     i;
-};
-
-static void ffargv_count(BLURAY_STREAM_INFO *st, void *data)
-{
-	struct ffargv_count *cnt = data;
-#ifndef REQUIRE_LANGS
-	if(cnt->langs == NULL)
-		goto map;
-#endif
-	for(const char **lang = cnt->langs; *lang; lang++)
-		if(st->lang[0] == '\0'
-				|| strncmp(iso6392_bcode((char *)st->lang), *lang, 4) == 0)
-		{
-		map:
-			cnt->maps++;
-			cnt->metas += (st->lang[0] != '\0');
-			if(st->coding_type == BLURAY_STREAM_TYPE_AUDIO_LPCM)
-			{
-				cnt->convs += 3 + DECIMAL_BUFFER_LEN(uint16_t);
-				cnt->argc += 4;
-			}
-			break;
-		}
-}
-
-#define ARGV_APPENDF(argp1, argp2, format, ...) \
-		((argp2) += sprintf((char *)(*(argp1)++ = (argp2)), \
-				format, __VA_ARGS__) + 1)
-
-static void ffargv_fill(BLURAY_STREAM_INFO *st, void *data)
-{
-	struct ffarg *ff = data;
-#ifndef REQUIRE_LANGS
-	if(ff->langs == NULL)
-		goto map;
-#endif
-	for(const char **lang = ff->langs; *lang; lang++)
-		if(st->lang[0] == '\0'
-				|| strncmp(iso6392_bcode((char *)st->lang), *lang, 4) == 0)
-		{
-		map:
-			*ff->argp1++ = "-map";
-			ARGV_APPENDF(ff->argp1, ff->argp2, "0:i:0x%04" PRIx16, st->pid);
-			if(st->lang[0] != '\0')
-			{
-				ARGV_APPENDF(ff->argp1, ff->argp2, "-metadata:s:%" PRIu16, ff->i);
-				ARGV_APPENDF(ff->argp1, ff->argp2, "language=%s", iso6392_bcode((char *)st->lang));
-			}
-			if(st->coding_type == BLURAY_STREAM_TYPE_AUDIO_LPCM)
-			{
-				// FIXME keep pcm
-				ARGV_APPENDF(ff->argp1, ff->argp2, "-c:%" PRIu16, ff->i);
-				*ff->argp1++ = "flac";
-				*ff->argp1++ = "-compression_level";
-				*ff->argp1++ = "12";
-			}
-			ff->i++;
-			break;
-		}
-}
-
-const char **generate_ffargv(struct tilist *til, const char **langs,
-		const char *src, const char *dst, int chapterfd, int skip_ig)
-{
-	/*
-	ffmpeg -playlist %d -angle %d -i bluray:%s [-i /proc/self/fd/%d]
-			-c copy [[-map 0:%c:%d] [-metadata:s:%d language=%s]]...
-			[-map_chapters 1] %s
-	*/
-	BLURAY_TITLE_INFO *ti = til->ti;
-	size_t ffargc = 11;
-	size_t ffargn = (DECIMAL_BUFFER_LEN(uint32_t) + 1)
-			+ (DECIMAL_BUFFER_LEN(uint8_t) + 1) + (7 + strlen(src) + 1);
-	if(chapterfd != -1)
+	char **argv = NULL;
+	int    argc = 0;
+	while(n > 0)
 	{
-		ffargc += 4;
-		if(chapterfd != 0)
-			ffargn += 14 + DECIMAL_BUFFER_LEN(int) + 1;
-	}
-
-	// count mappings
-	struct ffargv_count cnt;
-	cnt.langs = langs;
-	cnt.argc  = 0;
-	cnt.maps  = 0;
-	cnt.metas = 0;
-	cnt.convs = 0;
-	iter_streams(&ti->clips[0], skip_ig, &ffargv_count, &cnt);
-	ffargc += 2 * (cnt.maps + cnt.metas) + cnt.argc;
-	ffargn += cnt.maps * 11
-			+ cnt.metas * (12 + DECIMAL_BUFFER_LEN(uint16_t) + 1 + 12 + 1)
-			+ cnt.convs;
-
-	const char **ffargv = malloc((ffargc + 1) * sizeof(char *) + ffargn);
-	if(ffargv == NULL)
-		return NULL;
-
-	// fill argv
-	struct ffarg ff;
-	ff.langs = langs;
-	ff.argp1 = ffargv;
-	ff.argp2 = (char *)(ffargv + ffargc + 1);
-
-	*ff.argp1++ = "ffmpeg";
-	*ff.argp1++ = "-fix_sub_duration";
-	*ff.argp1++ = "-playlist";
-	ARGV_APPENDF(ff.argp1, ff.argp2, "%" PRIu32, ti->playlist);
-	*ff.argp1++ = "-angle";
-	ARGV_APPENDF(ff.argp1, ff.argp2, "%" PRIu8,
-			til->an[0] == ANGLE_WILDCARD ? 0 : til->an[0]);
-	*ff.argp1++ = "-i";
-	ff.argp2 = stpcpy(stpcpy((char *)(*ff.argp1++ = ff.argp2),
-			"bluray:"), src) + 1;
-	if(chapterfd != -1)
-	{
-		*ff.argp1++ = "-i";
-		if(chapterfd == 0)
-			*ff.argp1++ = "-";
+		if(!(argv = array_reserve(argv, argc, 1, sizeof(*argv)))) // FIXME realloc: NULL
+			return NULL;
+		argv[argc++] = s;
+		char *s2 = memchr(s, '\0', n);
+		if(s2)
+			s2++, n -= s2 - s, s = s2;
 		else
-			ARGV_APPENDF(ff.argp1, ff.argp2, "/proc/self/fd/%d", chapterfd);
+			n = 0;
 	}
-	*ff.argp1++ = "-c";
-	*ff.argp1++ = "copy";
-	// argvify mappings
-	ff.i = 0;
-	iter_streams(&ti->clips[0], skip_ig, &ffargv_fill, &ff);
-	if(chapterfd != -1)
-	{
-		*ff.argp1++ = "-map_chapters";
-		*ff.argp1++ = "1";
-	}
-	*ff.argp1++ = dst;
-	*ff.argp1 = NULL;
-
-	return ffargv;
+	if(!(argv = array_reserve(argv, argc, 1, sizeof(*argv)))) // FIXME realloc: NULL
+		return NULL;
+	argv[argc] = NULL;
+	return argv;
 }
 
-int start_ffmpeg_chapter_process(BLURAY *bd, BLURAY_TITLE_INFO *ti, int fds[2],
-		const char *argv0)
+struct strs_builder {
+	char  *buf;
+	size_t len;
+	size_t end;
+};
+
+static char *strs_pushf(struct strs_builder *b, const char *fmt, ...)
 {
-	// TODO use memfd_create to avoid nasty forking business
+	va_list ap;
+	va_start(ap, fmt);
+	int n;
+	while(1)
+	{
+		va_list ap2;
+		va_copy(ap2, ap);
+		n = vsnprintf(b->buf + b->end, b->len - b->end, fmt, ap2);
+		va_end(ap2);
+		if(n < 0)
+			return NULL;
+		else if((size_t)n >= b->len - b->end)
+		{
+			if(!(b->buf = array_reserve(b->buf, b->end, n + 1, 1))) // FIXME realloc: NULL
+				return NULL;
+			b->len = b->end + n + 1;
+		}
+		else
+			break;
+	}
+	va_end(ap);
+	char *arg = b->buf + b->end;
+	b->end += n + 1;
+	return arg;
+}
+
+static char **generate_ffargv(const BLURAY_TITLE_INFO *title, char (*langs)[4],
+		size_t numlangs, const char *src, const char *dst, int chapterfd,
+		int transcode, int skip_ig)
+{
+	struct strs_builder b = {
+		.buf = NULL,
+		.len = 0,
+		.end = 0
+	};
+	if(!strs_pushf(&b, "ffmpeg")
+			|| !strs_pushf(&b, "-playlist") || !strs_pushf(&b, "%"PRIu32,   title->playlist)
+//			|| !strs_pushf(&b, "-angle")    || !strs_pushf(&b, "%"PRIu8,    title->angle)
+			|| !strs_pushf(&b, "-i")        || !strs_pushf(&b, "bluray:%s", src))
+		goto error;
+	if(title->chapter_count > 0)
+	{
+		const char *fmt = chapterfd == STDIN_FILENO ? "-" : "/dev/fd/%u";
+		if(!strs_pushf(&b, "-i") || !strs_pushf(&b, fmt, chapterfd))
+			goto error;
+	}
+
+	const BLURAY_STREAM_INFO *allstreams[] = {
+		title->clips[0].video_streams,
+		title->clips[0].sec_video_streams,
+		title->clips[0].audio_streams,
+		title->clips[0].sec_audio_streams,
+		title->clips[0].pg_streams,
+		title->clips[0].ig_streams
+	};
+	size_t numallstreams[] = {
+		title->clips[0].video_stream_count,
+		title->clips[0].sec_video_stream_count,
+		title->clips[0].audio_stream_count,
+		title->clips[0].sec_audio_stream_count,
+		title->clips[0].pg_stream_count,
+		skip_ig ? 0 : title->clips[0].ig_stream_count
+	};
+#define ITER_STREAMS(body) \
+		for(size_t _i = 0, streamnum = 0; _i < 6; _i++) \
+			for(size_t _j = 0; _j < numallstreams[_i]; _j++) { \
+				const BLURAY_STREAM_INFO *stream = allstreams[_i] + _j; \
+				const char *lang = stream->lang[0] ? iso6392_bcode((const char *)stream->lang) : NULL; \
+				if(langs && stream->lang[0] && !bisect_contains(langs, lang ? lang : "", numlangs, sizeof(*langs), (compar_fn)strcmp)) \
+					continue; \
+				body \
+				streamnum++; \
+			}
+
+	ITER_STREAMS(
+		if(!strs_pushf(&b, "-map") || !strs_pushf(&b, "0:i:0x%04"PRIx16, stream->pid))
+			goto error;
+	)
+
+	if(!strs_pushf(&b, "-c") || !strs_pushf(&b, "copy"))
+		goto error;
+	int flac = 0;
+	ITER_STREAMS(
+		if(stream->coding_type == BLURAY_STREAM_TYPE_AUDIO_LPCM || (transcode
+				&& (stream->coding_type == BLURAY_STREAM_TYPE_AUDIO_TRUHD
+						|| stream->coding_type == BLURAY_STREAM_TYPE_AUDIO_DTSHD_MASTER)))
+		{
+			if(!strs_pushf(&b, "-c:%zu", streamnum) || !strs_pushf(&b, "flac"))
+				goto error;
+			flac = 1;
+		}
+	)
+	if(flac)
+		if(!strs_pushf(&b, "-compression_level") || !strs_pushf(&b, "12"))
+			goto error;
+
+	ITER_STREAMS(
+		if(lang)
+			if(!strs_pushf(&b, "-metadata:s:%zu", streamnum) || !strs_pushf(&b, "language=%s", lang))
+				goto error;
+	)
+
+	if(title->chapter_count > 0)
+		if(!strs_pushf(&b, "-map_chapters") || !strs_pushf(&b, "1"))
+			goto error;
+
+	if(!strs_pushf(&b, "%s", dst))
+		goto error;
+
+	char **argv = argv_from_strs(b.buf, b.end);
+	if(!argv)
+		goto error;
+	return argv;
+
+#undef ITER_STREAMS
+
+error:
+	// TODO errno
+	free(b.buf);
+	return NULL;
+}
+
+static int print_argv(char **argv)
+{
+	for(char **arg = argv; *arg;)
+	{
+		if(fputs(shell_escape(*arg), stdout) == EOF)
+			return -1;
+		if(*++arg && fputc(' ', stdout) == EOF)
+			return -1;
+	}
+	return 0;
+}
+
+int fork_ffmpeg(const BLURAY_TITLE_INFO *title, int fds[2], const char *argv0)
+{
+	if(title->chapter_count == 0)
+		return 0;
 
 	pid_t child = fork();
-	if(child == -1)
-	{
-		close(fds[1]);
-	error2:
-		close(fds[0]);
-		perror(argv0);
+	if(child < 0)
 		return -1;
-	}
 	else if(child == 0)
-	{
-		// 1st child process
-		close(fds[0]);
+		return 0;
 
-		if(dup2(fds[1], STDOUT_FILENO) == -1)
-		{
-			close(fds[1]);
-		error3:
-			bd_free_title_info(ti);
-			bd_close(bd);
-			perror(argv0);
-			_exit(1);
-		}
-		close(fds[1]);
+	int status;
 
-		// fork again
-		child = fork();
-		if(child == -1)
-			goto error3;
-		else if(child != 0)
-		{
-			// exit 1st child process
-			fork();
-			close(fds[1]);
-			_exit(0);
-		}
-
-		// 2nd child process
-		int e = print_ff_chapters(ti) == -1 || fflush(stdout) == EOF;
-		if(e)
-			fprintf(stderr, "%s: Failed to write chapters\n", argv0);
-
-		bd_free_title_info(ti);
-		bd_close(bd);
-
-		_exit(e);
-	}
-
-	// parent process
+	if(dup2(fds[1], STDOUT_FILENO) < 0)
+		goto error;
+	close(fds[0]);
 	close(fds[1]);
 
-	// wait for 1st child to exit
-	int status;
-	waitpid(child, &status, 0);
-	if(WEXITSTATUS(status) != 0)
-		goto error2;
+	if(print_ff_chapters(title) < 0)
+		goto error;
 
-	return 0;
+	while(waitpid(child, &status, 0) < 0 || !(WIFEXITED(status) || WIFSIGNALED(status))) {}
+	if(WIFEXITED(status))
+		_exit(WEXITSTATUS(status));
+	raise(WTERMSIG(status));
+	_exit(1);
+
+error:
+	perror(argv0);
+	kill(child, SIGTERM);
+	while(waitpid(child, &status, 0) < 0 || !(WIFEXITED(status) || WIFSIGNALED(status))) {}
+	_exit(1);
 }
 
-static int parse_playlist_arg(uint32_t *pl, uint8_t *an, char *arg)
+static int parse_playlist_arg(uint32_t *pl, uint8_t *an, const char *arg)
 {
-	char *s = strchr(arg, ':');
-	if(s == NULL)
-		*an = ANGLE_WILDCARD;
-	else
-	{
-		if(*(++s) == '\0' || dec2uint(an, sizeof(uint8_t), s) == -1
-				|| *an == ANGLE_WILDCARD)
-			return -1;
-		*(--s) = '\0';
-	}
-	if(dec2uint(pl, sizeof(uint32_t), arg) == -1)
-	{
-		if(s != NULL)
-			*s = ':';
+	unsigned long l;
+	char *end;
+
+	errno = 0;
+	l = strtoul(arg, &end, 0);
+	if(l > UINT32_MAX)
+		l = ULONG_MAX, errno = ERANGE;
+	if(l == ULONG_MAX && errno == ERANGE)
 		return -1;
-	}
-	return 0;
+	*pl = l;
+	*an = ANGLE_WILDCARD;
+
+	if(!*end)
+		return 0;
+	else if(*end != ':')
+		return -1;
+
+	l = strtoul(arg, &end, 0);
+	if(l > UINT8_MAX)
+		l = ULONG_MAX, errno = ERANGE;
+	if(l == ULONG_MAX && errno == ERANGE)
+		return -1;
+	*an = l;
+
+	return *end ? -1 : 0;
 }
 
-static struct tilist *tilist_create(struct tilist **ptil, BLURAY *bd,
-		BLURAY_TITLE_INFO *ti, uint32_t *clips, mempool_t *listpool,
-		const char *argv0)
+static int cmp_playlist_selectors(const void *a_, const void *b_)
 {
-	struct tilist *til = mempool_alloc(listpool);
-	if(til == NULL)
+	const struct playlist_selector *a = a_;
+	const struct playlist_selector *b = b_;
+	int c = (a->playlist > b->playlist) - (a->playlist < b->playlist);
+	if(c == 0)
 	{
-	error:
-		bd_free_title_info(ti);
-		return NULL;
+		if(a->angle == ANGLE_WILDCARD)
+			c = -1;
+		else if(b->angle == ANGLE_WILDCARD)
+			c = 1;
+		else
+			c = (a->angle > b->angle) - (a->angle < b->angle);
 	}
-	if(clips == NULL)
-	{
-		clips = malloc(ti->angle_count * ti->clip_count * sizeof(uint32_t));
-		if(clips == NULL)
-			goto error;
-#ifdef GET_CLIPNAMES
-		// parse clip names
-		char mpls_path[25];
-		errno = 0;
-		if(snprintf(mpls_path, 25, "BDMV/PLAYLIST/%05" PRIu32 ".mpls",
-				ti->playlist) != 24)
-		{
-			if(errno == 0)
-				fprintf(stderr, "%s: Failed to parse BDMV/PLAYLIST/%05" PRIu32
-						".mpls\n", argv0, ti->playlist);
-			goto error;
-		}
-		void   *mpls_buf;
-		int64_t n;
-		if(!bd_read_file(bd, mpls_path, &mpls_buf, &n))
-			goto error;
-		if(mpls_memparse(clips, mpls_buf, (size_t)n, ti->angle_count,
-				ti->clip_count) == -1)
-			goto error;
-#endif
-	}
-	til->ti    = ti;
-	til->clips = clips;
-	til->next  = *ptil;
-	*ptil = til;
-	return til;
+	return c;
 }
 
-static int tilist_add_by_duration(struct tilist **ptil_first, BLURAY *bd,
-		int filter_flags, uint32_t min_duration, mempool_t *listpool,
-		const char *argv0)
+static void clean_playlist_selectors(struct playlist_selector *playlists, size_t *numplaylists)
 {
-	// get titles
-	uint32_t np = bd_get_titles(bd, filter_flags, min_duration);
-	for(uint32_t ip = 0; ip < np; ip++)
+	if(*numplaylists == 0)
+		return;
+	qsort(playlists, *numplaylists, sizeof(*playlists), cmp_playlist_selectors);
+	size_t off = 0;
+	int wildcard = playlists[0].angle == ANGLE_WILDCARD;
+	for(size_t src = 1; src < *numplaylists; src++)
 	{
-		BLURAY_TITLE_INFO *ti = bd_get_title_info(bd, ip, 0);
-		if(ti == NULL)
-			return -1;
-
-		// find insert point
-		struct tilist **ptil = ptil_first;
-		struct tilist *til = *ptil;
-		while(til && til->ti->playlist <= ti->playlist)
+		if(playlists[src].playlist == playlists[src - 1].playlist)
 		{
-			ptil = &til->next;
-			til = *ptil;
-		}
-		// append new title
-		til = tilist_create(ptil, bd, ti, NULL, listpool, argv0);
-		if(til == NULL)
-			return -1;
-		til->an[0] = ANGLE_WILDCARD;
-	}
-	return 0;
-}
-
-static int tilist_add_selectors(struct tilist **ptil, BLURAY *bd,
-		struct pllist *pl_first, mempool_t *listpool, const char *argv0)
-{
-	// insert selected playlist
-	struct tilist *til = *ptil;
-	for(struct pllist *pl = pl_first; pl;)
-	{
-		// find insert point
-		while(til && til->ti->playlist < pl->pl)
-		{
-			ptil = &til->next;
-			til = *ptil;
-		}
-		// didn't get playlist info already
-		BLURAY_TITLE_INFO *ti;
-		uint32_t          *clips = NULL;
-		uint8_t            ia;
-		if(til == NULL || pl->pl != til->ti->playlist)
-		{
-			ti = bd_get_playlist_info(bd, pl->pl, 0);
-			if(ti == NULL)
-				return -1;
-
-		tilist_insert_playlist:
-			// append new title
-			til = tilist_create(ptil, bd, ti, clips, listpool, argv0);
-			if(til == NULL)
-				return -1;
-			ia = 0;
-		tilist_add_angle:
-			// valid angle
-			if(pl->an >= ti->angle_count && pl->an != ANGLE_WILDCARD)
+			if(wildcard || playlists[src].angle == playlists[src - 1].angle)
 			{
-				fprintf(stderr, "%s: Invalid angle %" PRIu8 " for playlist %05"
-						PRIu32 ".mpls\n", argv0, pl->an, pl->pl);
-				return -1;
+				off++;
+				continue;
 			}
-			til->an[ia] = pl->an;
-			if(ia < sizeof(til->an) / sizeof(til->an[0]) - 1)
-				til->an[ia + 1] = ANGLE_WILDCARD;
 		}
-		else if(til->an[0] != ANGLE_WILDCARD)
-		{
-			ti    = til->ti;
-			clips = til->clips;
-			while(til && til->ti == ti)
-			{
-				for(ia = 1; ia < sizeof(til->an) / sizeof(til->an[0]); ia++)
-					if(til->an[ia] == ANGLE_WILDCARD)
-						goto tilist_add_angle;
-				ptil = &til->next;
-				til = *ptil;
-			}
-			goto tilist_insert_playlist;
-		}
-
-		struct pllist *pl2 = pl->next;
-		mempool_free(listpool, pl);
-		pl = pl2;
+		else
+			wildcard = playlists[src].angle == ANGLE_WILDCARD;
+		if(off > 0)
+			playlists[src - off] = playlists[src];
 	}
-	return 0;
+	*numplaylists -= off;
+}
+
+static int cmp_title_playlist(const void *a_, const void *b_)
+{
+	const BLURAY_TITLE_INFO *a = *(const void    **)a_;
+	uint32_t                 b = *(const uint32_t *)b_;
+	return (a->playlist > b) - (a->playlist < b);
+}
+
+static int cmp_title_infos(const void *a, const void *b_)
+{
+	const BLURAY_TITLE_INFO *b = *(const void **)b_;
+	return cmp_title_playlist(a, &b->playlist);
 }
 
 int main(int argc, char **argv)
 {
 	int ok = 1;
 
-	mempool_t listpool;
-	mempool_init(&listpool, 32, MAX(sizeof(struct pllist), sizeof(struct tilist)),
-			NULL, NULL, NULL);
-	struct pllist *pl_first = NULL;
-	struct tilist *ti_first = NULL;
-	BLURAY        *bd       = NULL;
-	const char   **langs    = NULL;
-	const char   **ffargv   = NULL;
-
 	uint32_t min_duration = -1;
 	int      filter_flags = TITLES_RELEVANT;
 	int      operation    = 'l';
-	int      skip_ig      = 0;
+	enum {
+		FLAG_TRANSCODE = 1,
+		FLAG_SKIP_IG   = 2
+	} flags = 0;
 
-	const struct option long_options[] = {
-			{"time",        required_argument, NULL, 't'},
-			{"playlist",    required_argument, NULL, 'p'},
-			{"all",         no_argument,       NULL, 'a'},
-//			{"multiple",    no_argument,       NULL, 'm'},
-			{"info",        no_argument,       NULL, 'i'},
-			{"chapters",    no_argument,       NULL, 'c'},
-#ifdef REQUIRE_LANGS
-			{"ffmpeg",      required_argument, NULL, 'f'},
-			{"remux",       required_argument, NULL, 'x'},
-#else
-			{"ffmpeg",      optional_argument, NULL, 'f'},
-			{"remux",       optional_argument, NULL, 'x'},
-#endif
-			{"skip-igs",    no_argument,       NULL, 's'},
-			{"help",        no_argument,       NULL, 'h'},
-			{"version",     no_argument,       NULL, 'v'},
-			{NULL,          0,                 NULL, 0}};
-	char optstring[OPTSTRING_LENGTH(long_options)];
-	make_optstring(optstring, long_options);
+	struct playlist_selector *playlists = NULL;
+	char                    (*langs)[4] = NULL;
+	size_t numplaylists = 0;
+	size_t numlangs     = 0;
+
+	BLURAY             *bd     = NULL;
+	BLURAY_TITLE_INFO **titles = NULL;
+	char              **ffargv = NULL;
+	size_t numtitles = 0;
+
+	static const char optstring[] = "t:p:aicf::x::Lshv";
+	static const struct option long_options[] = {
+		{"time",        required_argument, NULL, 't'},
+		{"playlist",    required_argument, NULL, 'p'},
+		{"all",         no_argument,       NULL, 'a'},
+//		{"multiple",    no_argument,       NULL, 'm'},
+		{"info",        no_argument,       NULL, 'i'},
+		{"chapters",    no_argument,       NULL, 'c'},
+		{"ffmpeg",      optional_argument, NULL, 'f'},
+		{"remux",       optional_argument, NULL, 'x'},
+		{"lossless",    no_argument,       NULL, 'L'},
+		{"skip-igs",    no_argument,       NULL, 's'},
+		{"help",        no_argument,       NULL, 'h'},
+		{"version",     no_argument,       NULL, 'v'},
+		{NULL, 0, NULL, 0}
+	};
 
 	// parse arguments
-	while(1)
-	{
-		int c = getopt_long(argc, argv, optstring, long_options, NULL);
-		if(c == -1)
-			break;
+	for(int c; (c = getopt_long(argc, argv, optstring, long_options, NULL)) != -1;)
 		switch(c)
 		{
+			unsigned long long l;
+			char    *end;
+			uint32_t playlist;
+			uint8_t  angle;
 		case 'h':
 			if(printf("Usage: %s [OPTION]... INPUT [OUTPUT]\n"
 					"Get " BLURAY_SPELLING " info and extract tracks with ffmpeg.\n"
@@ -910,28 +705,21 @@ int main(int argc, char **argv)
 					"                             select playlist PLAYLIST and optionally only angle\n"
 					"                             ANGLE\n"
 					"  -a, --all                  do not omit duplicate titles\n"
-//					"  -m, --multiple             allow selection of multiple titles for extraction\n"
 					"  -i, --info                 print more detailed information\n"
-					"  -c, --chapters             print chapter xml\n"
-#ifdef REQUIRE_LANGS
-					"  -f, --ffmpeg=LANGUAGES     print ffmpeg call to extract streams of given or\n"
-					"                             undefined languages\n"
-					"  -x, --remux=LANGUAGES      extract streams of given or undefined languages\n"
-					"                             with ffmpeg\n"
-#else
+					"  -c, --chapters             print XML chapters\n"
 					"  -f, --ffmpeg[=LANGUAGES]   print ffmpeg call to extract all or only streams of\n"
 					"                             given or undefined languages\n"
 					"  -x, --remux[=LANGUAGES]    extract all or only streams of given or undefined\n"
 					"                             languages with ffmpeg\n"
-#endif
-					"  -s, --skip-igs             Skip interactive graphic streams on extraction\n"
+					"  -L, --lossless             transcode lossless audio tracks to FLAC\n"
+					"  -s, --skip-igs             skip interactive graphic streams on extraction\n"
 					"  -h, --help                 display this help and exit\n"
 					"  -v, --version              output version information and exit\n",
 					argv[0]) < 0)
 				goto error_errno;
 			return 0;
 		case 'v':
-			if(printf("%s " PACKAGE_VERSION "\n"
+			if(printf("%s " BDINFO_VERSION "\n"
 					"Copyright (C) 2016 Schnusch\n"
 					"License LGPLv3+: GNU LGPL version 3 or later <http://gnu.org/licenses/lgpl.html>.\n"
 					"This is free software: you are free to change and redistribute it.\n"
@@ -941,150 +729,146 @@ int main(int argc, char **argv)
 				goto error_errno;
 			return 0;
 		case 't':
-		{
-			// parse time
-			uint32_t t;
-			if(dec2uint(&t, sizeof(uint32_t), optarg) == -1)
+			errno = 0;
+			l = strtoull(optarg, &end, 0);
+			if(l > UINT64_MAX)
+				l = ULLONG_MAX, errno = ERANGE;
+			if((l == ULLONG_MAX && errno == ERANGE) || *end)
 			{
 				fprintf(stderr, "%s: Invalid duration %s\n", argv[0], optarg);
-				return 1;
+				goto error;
 			}
-			// save smallest time
-			if(t < min_duration)
-				min_duration = t;
+			if(l < min_duration)
+				min_duration = l;
 			break;
-		}
 		case 'p':
-		{
-			// parse playlist
-			uint32_t plnum;
-			uint8_t  annum;
-			if(parse_playlist_arg(&plnum, &annum, optarg) == -1)
+			if(parse_playlist_arg(&playlist, &angle, optarg) == -1)
 			{
 				fprintf(stderr, "%s: Invalid playlist %s\n", argv[0], optarg);
-				return 1;
+				goto error;
 			}
 
-			// find insert point
-			struct pllist **ppl = &pl_first;
-			struct pllist *pl = *ppl;
-			while(pl && (pl->pl < plnum || (pl->pl == plnum && pl->an < annum
-					&& annum != ANGLE_WILDCARD && pl->an != ANGLE_WILDCARD)))
-			{
-				ppl = &(*ppl)->next;
-				pl = *ppl;
-			}
-			// remove obsolete angles
-			if(pl && annum == ANGLE_WILDCARD && pl->an != ANGLE_WILDCARD)
-			{
-				while(pl && pl->pl == plnum)
-				{
-					*ppl = pl->next;
-					mempool_free(&listpool, pl);
-					pl = *ppl;
-				}
-			}
-			// avoid duplicates
-			if(pl == NULL || pl->pl != plnum
-					|| (pl->an != ANGLE_WILDCARD && pl->an != annum))
-			{
-				// append new playlist
-				pl = mempool_alloc(&listpool);
-				if(pl == NULL)
-					goto error_errno;
-				pl->pl   = plnum;
-				pl->an   = annum;
-				pl->next = *ppl;
-				*ppl = pl;
-			}
+			if(!(playlists = array_reserve(playlists, numplaylists, 1, sizeof(*playlists)))) // FIXME realloc: NULL
+				goto error_errno;
+			playlists[numplaylists].playlist = playlist;
+			playlists[numplaylists++].angle  = angle;
 			break;
-		}
 		case 'a':
 			filter_flags = 0;
 			break;
+		case 'L':
+			flags |= FLAG_TRANSCODE;
+			break;
 		case 's':
-			skip_ig = 1;
+			flags |= FLAG_SKIP_IG;
 			break;
 		case 'f':
 		case 'x':
-#ifndef REQUIRED_LANGUAGES
-			if(optarg != NULL)
-#endif
+			if(optarg)
 			{
-				// prepare language list
-				size_t l = (strcnt(optarg, ',') + 2) * sizeof(char *);
-				langs = realloc(langs, l + strlen(optarg) + 1);
-				if(langs == NULL)
-					goto error_errno;
-				char *c = strcpy((char *)langs + l, optarg);
-				const char **lang = langs;
-				int done = 0;
-				do
+				for(const char *lang, *next = optarg; (lang = iter_comma_list(&next, ','));)
 				{
-					char *c2 = strchrnul(c, ',');
-					done = *c2 == '\0';
-					*c2 = '\0';
-					const char *l = iso6392_bcode(c);
-					if(l == c)
+					// null-terminate lang
+					char buf[4];
+					if(next - lang == 3 && *next)
 					{
-						if(!iso6392_known(c))
-							fprintf(stderr, "%s: Unknown ISO 639-2 language requested: %s\n",
-									argv[0], c);
+						strncpy(buf, lang, 3);
+						buf[3] = '\0';
+						lang = buf;
 					}
-					else
-						memcpy(c, l, c2 - c);
-					*lang++ = c;
-					c = c2 + 1;
+
+					if(!iso6392_known(lang))
+					{
+						fprintf(stderr, "%s: Unknown ISO 639-2 language requested:"
+								" %s\n", argv[0], lang);
+						continue;
+					}
+
+					lang = iso6392_bcode(lang);
+					if(!(langs = array_reserve(langs, numlangs, 1, sizeof(*langs)))) // FIXME realloc: NULL
+						goto error_errno;
+					strcpy(langs[numlangs++], lang);
 				}
-				while(!done);
-				*lang = NULL;
+				qsort(langs, numlangs, sizeof(*langs), (compar_fn)strcmp);
 			}
 		case 'i':
 		case 'c':
 			operation = c;
 			break;
 		}
-	}
 
 	const char *src = argv[optind++];
-	if(src == NULL)
+	if(!src)
 	{
-		fprintf(stderr, "%s: No " BLURAY_SPELLING " specified\n", argv[0]);
-		return 0;
+		fprintf(stderr, "%s: No "BLURAY_SPELLING" given\n", argv[0]);
+		return 2;
 	}
 
-	if(min_duration == (uint32_t)-1 && pl_first == NULL)
+	const char *dst = argv[optind];
+	if(operation == 'f' || operation == 'x')
+		optind++;
+	if(optind > argc)
+	{
+		fprintf(stderr, "%s: no destination file given\n", argv[0]);
+		goto error;
+	}
+	else if(optind < argc)
+	{
+		fprintf(stderr, "%s: trailing arguments\n", argv[0]);
+		goto error;
+	}
+
+	if(numplaylists > 0)
+		clean_playlist_selectors(playlists, &numplaylists);
+	else if(min_duration == (uint32_t)-1)
 		min_duration = 0;
 
 	// open bluray
 	bd = bd_open(src, NULL);
-	if(bd == NULL)
+	if(!bd)
 		goto error_libbluray;
 
 	// get BLURAY_TITLE_INFOs by duration
 	if(min_duration != (uint32_t)-1)
 	{
-		errno = 0;
-		if(tilist_add_by_duration(&ti_first, bd, filter_flags, min_duration,
-				&listpool, argv[0]) == -1)
+		uint32_t n = bd_get_titles(bd, filter_flags, min_duration);
+		if(!(titles = array_reserve(titles, numtitles, n, sizeof(*titles)))) // FIXME realloc: NULL
+			goto error_errno;
+		for(uint32_t i = 0; i < n; i++)
 		{
-			if(errno == 0)
+			BLURAY_TITLE_INFO *title = bd_get_title_info(bd, i, 0);
+			if(!title)
 				goto error_libbluray;
-			else
-				goto error_errno;
+			titles[numtitles++] = title;
 		}
 	}
+	qsort(titles, numtitles, sizeof(*titles), cmp_title_infos);
+
 	// get BLURAY_TITLE_INFOs by playlist selectors
-	errno = 0;
-	if(tilist_add_selectors(&ti_first, bd, pl_first, &listpool, argv[0]) == -1)
+	for(size_t i = 0; i < numplaylists; i++)
 	{
-		if(errno == 0)
+		uint32_t playlist = playlists[i].playlist;
+
+		// skip playlist if already selected by time
+		size_t j = bisect_left(titles, &playlist, numtitles, sizeof(*titles), cmp_title_playlist);
+		if(j < numtitles && titles[j]->playlist == playlist)
+			continue;
+
+		BLURAY_TITLE_INFO *title = bd_get_playlist_info(bd, playlist, 0);
+		if(!title)
 			goto error_libbluray;
-		else
+
+		if(!(titles = array_reserve(titles, numtitles, 1, sizeof(*titles)))) // FIXME realloc: NULL
+		{
+			int errnum = errno;
+			bd_free_title_info(title);
+			errno = errnum;
 			goto error_errno;
+		}
+		titles[numtitles++] = title;
 	}
 
-	if(ti_first == NULL)
+	if(numtitles == 0)
 	{
 		fprintf(stderr, "%s: No title selected\n", argv[0]);
 		goto error;
@@ -1092,102 +876,76 @@ int main(int argc, char **argv)
 
 	if(operation == 'l' || operation == 'i')
 	{
-		if(list_titles(ti_first, operation == 'i', true) == -1)
+		for(size_t i = 0; i < numtitles; i++)
+			if(print_title(titles[i], operation == 'i') < 0)
+				goto error_errno;
+		if(fputs("...\n", stdout) == EOF)
 			goto error_errno;
 	}
 	else
 	{
-		// single title
-		if(ti_first->next != NULL)
+		if(numtitles > 1)
 		{
-			uint32_t nt = 0;
-			for(struct tilist *til = ti_first; til; til = til->next)
-				nt++;
-
-			char short_op[2];
-			const char *long_op = NULL;
-			for(const struct option *lo = long_options; lo->name; lo++)
-				if(lo->val == operation)
+			const char short_opt[2] = {operation, '\0'};
+			const char *long_opt = NULL;
+			for(const struct option *opt = long_options; opt->name; opt++)
+				if(opt->val == operation)
 				{
-					long_op = lo->name;
+					long_opt = opt->name;
 					break;
 				}
-			if(long_op == NULL)
-			{
-				short_op[0] = operation;
-				short_op[1] = '\0';
-			}
-			fprintf(stderr, "%s: %s%s requires a single title (%" PRIu32
-					" selected)\n", argv[0], long_op == NULL ? "-" : "--",
-					long_op == NULL ? short_op : long_op, nt);
+			fprintf(stderr, "%s: %s%s requires a single title (%zu selected)\n",
+					argv[0], long_opt ? "--" : "-", long_opt ? long_opt : short_opt, numtitles);
 			goto error;
 		}
 
-		BLURAY_TITLE_INFO *ti = ti_first->ti;
+		BLURAY_TITLE_INFO *title = titles[0];
 		if(operation == 'c')
 		{
-			if(print_xml_chapters(ti) == -1)
+			if(print_xml_chapters(title) == -1)
 				goto error_errno;
 		}
 		else
 		{
-			// destination file
-			const char *dst = argv[optind];
-			if(dst == NULL)
+			int fds[2] = {0, -1};
+			if(operation == 'x' && title->chapter_count > 0 && pipe2(fds, O_CLOEXEC) < 0)
+				goto error_errno;
+
+			ffargv = generate_ffargv(title, langs, numlangs, src, dst, fds[0],
+					flags & FLAG_TRANSCODE, flags & FLAG_SKIP_IG);
+			if(!ffargv)
 			{
-				fprintf(stderr, "%s: No destination file given\n", argv[0]);
-				goto error;
+				if(operation == 'x')
+				{
+					int errbak = errno;
+					close(fds[0]);
+					close(fds[1]);
+					errno = errbak;
+				}
+				goto error_errno;
 			}
 
 			if(operation == 'f')
 			{
-				// generate ffmpeg call without chapter pipe
-				ffargv = generate_ffargv(ti_first, langs, src, dst, 0, skip_ig);
-				if(ffargv == NULL)
+				if(print_argv(ffargv) < 0)
 					goto error_errno;
-
-				// print ffmpeg call
-				for(const char **ffarg = ffargv; *ffarg; ffarg++)
-				{
-					if(ffarg != ffargv)
-						if(fputc(' ', stdout) == EOF)
-							goto error_errno;
-					if(fputs(shell_escape(*ffarg), stdout) == EOF)
+				if(title->chapter_count > 0)
+					if(fputs(" << EOF\n", stdout) == EOF
+							|| print_ff_chapters(title) < 0
+							|| fputs("EOF", stdout) == EOF)
 						goto error_errno;
-				}
-				if(fputs(" << EOF\n", stdout) == EOF)
-					goto error_errno;
-				if(print_ff_chapters(ti_first->ti) == -1)
-					goto error_errno;
-				if(fputs("EOF\n", stdout) == EOF)
+				if(fputc('\n', stdout) == EOF)
 					goto error_errno;
 			}
 			else
 			{
-				int fds[2];
-				if(pipe(fds) == -1)
+				if(title->chapter_count > 0 && fork_ffmpeg(title, fds, argv[0]) < 0)
 					goto error_errno;
 
-				// generate ffmpeg call with chapter pipe
-				ffargv = generate_ffargv(ti_first, langs, src, dst, fds[0], skip_ig);
-				free(langs);
-				if(ffargv == NULL)
-				{
-					close(fds[0]);
-					close(fds[1]);
-					goto error_errno;
-				}
-
-				// start chapter feeding process
-				if(start_ffmpeg_chapter_process(bd, ti, fds, argv[0]) == -1)
-					goto error;
-
-				bd_free_title_info(ti);
-				bd_close(bd);
-
-				// start ffmpeg
 				execvp("ffmpeg", ffargv);
+				int errbak = errno;
 				close(fds[0]);
+				errno = errbak;
 				goto error_errno;
 			}
 		}
@@ -1195,30 +953,22 @@ int main(int argc, char **argv)
 
 	if(0)
 	{
-		do
-		{
-		error_errno:
-			perror(argv[0]);
-			break;
-		error_libbluray:
-			fprintf(stderr, "%s: Error in %s\n", argv[0], src);
-			break;
-		}
-		while(0);
+	error_errno:
+		perror(argv[0]);
+		goto error;
+	error_libbluray:
+		fprintf(stderr, "%s: Error in %s\n", argv[0], src);
 	error:
 		ok = 0;
 	}
-	for(struct tilist *til = ti_first; til;)
-	{
-		if(til->ti != NULL)
-			bd_free_title_info(til->ti);
-		free(til->clips);
-		for(BLURAY_TITLE_INFO *ti = til->ti; til && til->ti == ti; til = til->next);
-	}
-	mempool_destroy(&listpool);
+	for(size_t i = 0; i < numtitles; i++)
+		bd_free_title_info(titles[i]);
+	free(titles);
+	if(ffargv)
+		free(ffargv[0]);
 	free(ffargv);
 	free(langs);
-	if(bd != NULL)
+	if(bd)
 		bd_close(bd);
 
 	return !ok;
