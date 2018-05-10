@@ -170,6 +170,13 @@ struct playlist_selector {
 				return -1; \
 		} \
 		while(0)
+#define FATALDPRINTF(...) \
+		do \
+		{ \
+			if(dprintf(__VA_ARGS__) < 0) \
+				return -1; \
+		} \
+		while(0)
 
 static int print_stream_extended(const BLURAY_STREAM_INFO *stream)
 {
@@ -350,12 +357,12 @@ static int print_xml_chapters(const BLURAY_TITLE_INFO *title)
 	return 0;
 }
 
-static int print_ff_chapters(const BLURAY_TITLE_INFO *title)
+static int print_ff_chapters(const BLURAY_TITLE_INFO *title, int fd)
 {
 	const BLURAY_TITLE_CHAPTER *chapters = title->chapters;
-	FATALPUTS(";FFMETADATA1\n");
+	FATALDPRINTF(fd, ";FFMETADATA1\n");
 	for(uint32_t i = 0; i < title->chapter_count; i++)
-		FATALPRINTF("[CHAPTER]\n"
+		FATALDPRINTF(fd, "[CHAPTER]\n"
 				"TIMEBASE=1/90000\n"
 				"START=%"PRIu64"\n"
 				"END=%"PRIu64"\n",
@@ -529,40 +536,6 @@ static int print_argv(char **argv)
 			return -1;
 	}
 	return 0;
-}
-
-int fork_ffmpeg(const BLURAY_TITLE_INFO *title, int fds[2], const char *argv0)
-{
-	if(title->chapter_count == 0)
-		return 0;
-
-	pid_t child = fork();
-	if(child < 0)
-		return -1;
-	else if(child == 0)
-		return 0;
-
-	int status;
-
-	if(dup2(fds[1], STDOUT_FILENO) < 0)
-		goto error;
-	close(fds[0]);
-	close(fds[1]);
-
-	if(print_ff_chapters(title) < 0)
-		goto error;
-
-	while(waitpid(child, &status, 0) < 0 || !(WIFEXITED(status) || WIFSIGNALED(status))) {}
-	if(WIFEXITED(status))
-		_exit(WEXITSTATUS(status));
-	raise(WTERMSIG(status));
-	_exit(1);
-
-error:
-	perror(argv0);
-	kill(child, SIGTERM);
-	while(waitpid(child, &status, 0) < 0 || !(WIFEXITED(status) || WIFSIGNALED(status))) {}
-	_exit(1);
 }
 
 static int parse_playlist_arg(uint32_t *pl, uint8_t *an, const char *arg)
@@ -907,19 +880,31 @@ int main(int argc, char **argv)
 		}
 		else
 		{
-			int fds[2] = {0, -1};
-			if(operation == 'x' && title->chapter_count > 0 && pipe2(fds, O_CLOEXEC) < 0)
-				goto error_errno;
+			int tempfd = STDIN_FILENO;
+			if(operation == 'x' && title->chapter_count > 0)
+			{
+				char template[] = "/tmp/chapterinfo.XXXXXX";
+				tempfd = mkstemp(template);
+				if(tempfd < 0)
+					goto error_errno;
+				if (unlink(template) < 0)
+					goto error_errno;
 
-			ffargv = generate_ffargv(title, langs, numlangs, src, dst, fds[0],
+				if (print_ff_chapters(title, tempfd) < 0)
+					goto error_errno;
+
+				if (lseek(tempfd, 0, SEEK_SET) < 0)
+					goto error_errno;
+			}
+
+			ffargv = generate_ffargv(title, langs, numlangs, src, dst, tempfd,
 					flags & FLAG_TRANSCODE, flags & FLAG_SKIP_IG);
 			if(!ffargv)
 			{
 				if(operation == 'x')
 				{
 					int errbak = errno;
-					close(fds[0]);
-					close(fds[1]);
+					close(tempfd);
 					errno = errbak;
 				}
 				goto error_errno;
@@ -931,7 +916,7 @@ int main(int argc, char **argv)
 					goto error_errno;
 				if(title->chapter_count > 0)
 					if(fputs(" << EOF\n", stdout) == EOF
-							|| print_ff_chapters(title) < 0
+							|| print_ff_chapters(title, STDOUT_FILENO) < 0
 							|| fputs("EOF", stdout) == EOF)
 						goto error_errno;
 				if(fputc('\n', stdout) == EOF)
@@ -939,12 +924,9 @@ int main(int argc, char **argv)
 			}
 			else
 			{
-				if(title->chapter_count > 0 && fork_ffmpeg(title, fds, argv[0]) < 0)
-					goto error_errno;
-
 				execvp("ffmpeg", ffargv);
 				int errbak = errno;
-				close(fds[0]);
+				close(tempfd);
 				errno = errbak;
 				goto error_errno;
 			}
