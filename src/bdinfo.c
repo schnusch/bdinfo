@@ -549,7 +549,7 @@ int fork_ffmpeg(const BLURAY_TITLE_INFO *title, int fds[2], const char *argv0)
 	close(fds[0]);
 	close(fds[1]);
 
-	if(print_ff_chapters(title) < 0)
+	if(print_ff_chapters(title) < 0 || fflush(stdout) == EOF)
 		goto error;
 
 	while(waitpid(child, &status, 0) < 0 || !(WIFEXITED(status) || WIFSIGNALED(status))) {}
