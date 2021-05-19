@@ -208,6 +208,15 @@ static int print_audio_stream_extended(const BLURAY_STREAM_INFO *stream)
 	return 0;
 }
 
+/**
+ * Print stream information for the arrays of streams passed as var-args.
+ *
+ * The var-args are array-pointers followed by a size_t for the number of
+ * streams in the array. The var-args are terminated by a NULL array-pointer.
+ *
+ * *print* is a function that prints stream information. If it is null a
+ * comma-separated list of languages of the streams is returned.
+ */
 static int print_streams(int (*print)(const BLURAY_STREAM_INFO *), ...)
 {
 	va_list ap;
@@ -239,6 +248,11 @@ static int print_streams(int (*print)(const BLURAY_STREAM_INFO *), ...)
 	return err;
 }
 
+/**
+ * Print information for all streams in *clip*. (video_streams,
+ * sec_video_streams, audio_streams, sec_audio_streams, pg_streams, and
+ * ig_streams)
+ */
 static int print_all_streams(const BLURAY_CLIP_INFO *clip, int extended)
 {
 	int (*print_video)(const BLURAY_STREAM_INFO *) = extended ? print_video_stream_extended : NULL;
@@ -322,6 +336,9 @@ static int print_title(const BLURAY_TITLE_INFO *title, int extended)
 	return print_clips(title->clips, title->clip_count, extended);
 }
 
+/**
+ * Print *title* chapters as XML, consumable by mkvmerge.
+ */
 static int print_xml_chapters(const BLURAY_TITLE_INFO *title)
 {
 	static const char head[] =
@@ -350,6 +367,9 @@ static int print_xml_chapters(const BLURAY_TITLE_INFO *title)
 	return 0;
 }
 
+/**
+ * Print *title*'s as FFMETADATA1, consumable by ffmpeg.
+ */
 static int print_ff_chapters(const BLURAY_TITLE_INFO *title)
 {
 	const BLURAY_TITLE_CHAPTER *chapters = title->chapters;
@@ -368,6 +388,12 @@ static int print_ff_chapters(const BLURAY_TITLE_INFO *title)
 #undef FATALPUTS
 #undef FATALPRINTF
 
+/**
+ * *s* are immediately following nul-terminated strings. An array of pointers to
+ * these strings is created and terminated by a NULL pointer.
+ *
+ * The returned array may be used as *argv* in a call to execvpe.
+ */
 static char **argv_from_strs(char *s, size_t n)
 {
 	char **argv = NULL;
@@ -395,6 +421,9 @@ struct strs_builder {
 	size_t end;
 };
 
+/**
+ * Append a format string and its arguments to the string builder.
+ */
 static char *strs_pushf(struct strs_builder *b, const char *fmt, ...)
 {
 	va_list ap;
@@ -423,6 +452,17 @@ static char *strs_pushf(struct strs_builder *b, const char *fmt, ...)
 	return arg;
 }
 
+/**
+ * Generate argv for ffmpeg that remuxes *title* from *src* to *dst*.
+ *
+ * Only streams of unknown language and of languages in *langs* are mapped.
+ *
+ * LPCM audio streams are converted to FLAC, if *transcode* is given, DTS-HD MA
+ * and Dolby True HD audio streams are also converted to FLAC.
+ *
+ * Stream languages is set and, if *chapterfd* is given, chapter data is read
+ * from this file descriptor.
+ */
 static char **generate_ffargv(const BLURAY_TITLE_INFO *title, char (*langs)[4],
 		size_t numlangs, const char *src, const char *dst, int chapterfd,
 		int transcode, int skip_ig)
@@ -565,6 +605,11 @@ error:
 	_exit(1);
 }
 
+/**
+ * Parse playlist argument of the format PLAYLIST[:ANGLE]. The playlist number
+ * is returned in *\*pl* and the angle in *\*an*. *\*an* might be -1 if no angle
+ * was given.
+ */
 static int parse_playlist_arg(uint32_t *pl, uint8_t *an, const char *arg)
 {
 	unsigned long l;
@@ -594,6 +639,9 @@ static int parse_playlist_arg(uint32_t *pl, uint8_t *an, const char *arg)
 	return *end ? -1 : 0;
 }
 
+/**
+ * Compare playlist-angle tuples.
+ */
 static int cmp_playlist_selectors(const void *a_, const void *b_)
 {
 	const struct playlist_selector *a = a_;
@@ -611,6 +659,9 @@ static int cmp_playlist_selectors(const void *a_, const void *b_)
 	return c;
 }
 
+/**
+ * Remove duplicate or wildcard angles.
+ */
 static void clean_playlist_selectors(struct playlist_selector *playlists, size_t *numplaylists)
 {
 	if(*numplaylists == 0)
@@ -636,6 +687,9 @@ static void clean_playlist_selectors(struct playlist_selector *playlists, size_t
 	*numplaylists -= off;
 }
 
+/**
+ * Compare playlist-angle tuple with playlist number.
+ */
 static int cmp_title_playlist(const void *a_, const void *b_)
 {
 	const BLURAY_TITLE_INFO *a = *(const void    **)a_;
@@ -643,6 +697,9 @@ static int cmp_title_playlist(const void *a_, const void *b_)
 	return (a->playlist > b) - (a->playlist < b);
 }
 
+/**
+ * Compare playlist-angle tuple with BLURAY_TITLE_INFO.
+ */
 static int cmp_title_infos(const void *a, const void *b_)
 {
 	const BLURAY_TITLE_INFO *b = *(const void **)b_;

@@ -24,6 +24,11 @@ with bdinfo.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "util.h"
 
+/**
+ * Convert ISO-639-2 terminology codes to bibliographic codes. (Convert localized
+ * codes to international codes.) If *lang* is already a bibliographic code it
+ * is returned unchanged.
+ */
 const char *iso6392_to_bcode(const char *lang)
 {
 	static const struct {
@@ -55,6 +60,9 @@ const char *iso6392_to_bcode(const char *lang)
 		return lang;
 }
 
+/**
+ * Test if *lang* is a known ISO 639-2 language code.
+ */
 int iso6392_is_known(const char *lang)
 {
 	static const char bcodes[][4] = {
