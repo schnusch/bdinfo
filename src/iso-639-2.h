@@ -24,7 +24,7 @@ with bdinfo.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "util.h"
 
-const char *iso6392_bcode(const char *lang)
+const char *iso6392_to_bcode(const char *lang)
 {
 	static const struct {
 		char tcode[4];
@@ -55,7 +55,7 @@ const char *iso6392_bcode(const char *lang)
 		return lang;
 }
 
-int iso6392_known(const char *lang)
+int iso6392_is_known(const char *lang)
 {
 	static const char bcodes[][4] = {
 		"aar", "abk", "ace", "ach", "ada", "ady", "afh", "afr", "ain", "akk",
@@ -97,7 +97,7 @@ int iso6392_known(const char *lang)
 	};
 	static const size_t numbcodes = sizeof(bcodes) / sizeof(bcodes[0]);
 
-	lang = iso6392_bcode(lang);
+	lang = iso6392_to_bcode(lang);
 	size_t i = bisect_left(bcodes, lang, numbcodes, sizeof(bcodes[0]), (compar_fn)strcmp);
 	return i < numbcodes && strcmp(bcodes[i], lang) == 0;
 }

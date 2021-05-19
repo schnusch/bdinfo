@@ -175,7 +175,7 @@ static int print_stream_extended(const BLURAY_STREAM_INFO *stream)
 {
 	FATALPRINTF("          - pid:          0x%04"PRIx16"\n", stream->pid);
 	if(stream->lang[0])
-		FATALPRINTF("            language:     %s\n", iso6392_bcode((const char *)stream->lang));
+		FATALPRINTF("            language:     %s\n", iso6392_to_bcode((const char *)stream->lang));
 	const char *s;
 	if((s = get_stream_type(stream->coding_type)))
 		FATALPRINTF("            codec:        %s\n", s);
@@ -222,7 +222,7 @@ static int print_streams(int (*print)(const BLURAY_STREAM_INFO *), ...)
 			if(!print)
 			{
 				if(printf("%s%s", i == 0 ? "" : ", ", streams[i].lang[0]
-						? iso6392_bcode((const char *)streams[i].lang) : "und") < 0)
+						? iso6392_to_bcode((const char *)streams[i].lang) : "und") < 0)
 					goto err;
 			}
 			else if(print(streams + i) < 0)
@@ -464,7 +464,7 @@ static char **generate_ffargv(const BLURAY_TITLE_INFO *title, char (*langs)[4],
 		for(size_t _i = 0, streamnum = 0; _i < 6; _i++) \
 			for(size_t _j = 0; _j < numallstreams[_i]; _j++) { \
 				const BLURAY_STREAM_INFO *stream = allstreams[_i] + _j; \
-				const char *lang = stream->lang[0] ? iso6392_bcode((const char *)stream->lang) : NULL; \
+				const char *lang = stream->lang[0] ? iso6392_to_bcode((const char *)stream->lang) : NULL; \
 				if(langs && stream->lang[0] && !bisect_contains(langs, lang ? lang : "", numlangs, sizeof(*langs), (compar_fn)strcmp)) \
 					continue; \
 				body \
@@ -777,14 +777,14 @@ int main(int argc, char **argv)
 						lang = buf;
 					}
 
-					if(!iso6392_known(lang))
+					if(!iso6392_is_known(lang))
 					{
 						fprintf(stderr, "%s: Unknown ISO 639-2 language requested:"
 								" %s\n", argv[0], lang);
 						continue;
 					}
 
-					lang = iso6392_bcode(lang);
+					lang = iso6392_to_bcode(lang);
 					if(!(langs = array_reserve(langs, numlangs, 1, sizeof(*langs)))) // FIXME realloc: NULL
 						goto error_errno;
 					strcpy(langs[numlangs++], lang);
